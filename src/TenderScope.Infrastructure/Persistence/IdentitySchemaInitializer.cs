@@ -22,8 +22,12 @@ CREATE TABLE IF NOT EXISTS app_users (
   "PasswordHash" varchar(1000) NOT NULL,
   "CreatedAt" timestamptz NOT NULL,
   "LastLoginAt" timestamptz NULL,
+  "FailedLoginCount" integer NOT NULL DEFAULT 0,
+  "LockedUntil" timestamptz NULL,
   "IsActive" boolean NOT NULL
 );
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS "FailedLoginCount" integer NOT NULL DEFAULT 0;
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS "LockedUntil" timestamptz NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_app_users_Email" ON app_users ("Email");
 
 CREATE TABLE IF NOT EXISTS organization_memberships (
@@ -40,13 +44,25 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   "Id" uuid PRIMARY KEY,
   "UserId" uuid NOT NULL REFERENCES app_users("Id") ON DELETE CASCADE,
   "OrganizationId" uuid NULL REFERENCES organizations("Id") ON DELETE CASCADE,
+  "FamilyId" uuid NOT NULL,
   "TokenHash" varchar(128) NOT NULL,
+  "IpAddress" varchar(64) NULL,
+  "UserAgent" varchar(512) NULL,
   "CreatedAt" timestamptz NOT NULL,
+  "LastUsedAt" timestamptz NOT NULL,
   "ExpiresAt" timestamptz NOT NULL,
   "RevokedAt" timestamptz NULL,
   "ReplacedByTokenHash" varchar(128) NULL
 );
 ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS "OrganizationId" uuid NULL;
+ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS "FamilyId" uuid NULL;
+UPDATE refresh_tokens SET "FamilyId" = "Id" WHERE "FamilyId" IS NULL;
+ALTER TABLE refresh_tokens ALTER COLUMN "FamilyId" SET NOT NULL;
+ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS "IpAddress" varchar(64) NULL;
+ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS "UserAgent" varchar(512) NULL;
+ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS "LastUsedAt" timestamptz NULL;
+UPDATE refresh_tokens SET "LastUsedAt" = "CreatedAt" WHERE "LastUsedAt" IS NULL;
+ALTER TABLE refresh_tokens ALTER COLUMN "LastUsedAt" SET NOT NULL;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_refresh_tokens_organizations_OrganizationId') THEN
     ALTER TABLE refresh_tokens ADD CONSTRAINT "FK_refresh_tokens_organizations_OrganizationId" FOREIGN KEY ("OrganizationId") REFERENCES organizations("Id") ON DELETE CASCADE;
@@ -54,6 +70,7 @@ DO $$ BEGIN
 END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_refresh_tokens_TokenHash" ON refresh_tokens ("TokenHash");
 CREATE INDEX IF NOT EXISTS "IX_refresh_tokens_UserId_OrganizationId_ExpiresAt" ON refresh_tokens ("UserId", "OrganizationId", "ExpiresAt");
+CREATE INDEX IF NOT EXISTS "IX_refresh_tokens_FamilyId" ON refresh_tokens ("FamilyId");
 
 CREATE TABLE IF NOT EXISTS organization_invitations (
   "Id" uuid PRIMARY KEY,
