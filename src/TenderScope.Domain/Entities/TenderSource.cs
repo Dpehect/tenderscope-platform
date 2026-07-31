@@ -20,6 +20,7 @@ public sealed class TenderSource
     public DateTimeOffset? NextCrawlAt { get; private set; }
     public string? LastError { get; private set; }
 
+    public void ConfigureInterval(int minutes) => CrawlIntervalMinutes = Math.Clamp(minutes, 15, 1440);
     public void Schedule(DateTimeOffset now) => NextCrawlAt = now.AddMinutes(CrawlIntervalMinutes);
     public void MarkSucceeded(DateTimeOffset now)
     {
