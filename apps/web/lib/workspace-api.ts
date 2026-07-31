@@ -130,6 +130,7 @@ export function listWorkspaceActivities(itemId?: string) {
   return authenticatedRequest<WorkspaceActivity[]>(path);
 }
 
-export function listOrganizationMembers() {
-  return authenticatedRequest<OrganizationMember[]>("/api/organization/members");
+export async function listOrganizationMembers() {
+  const members = await authenticatedRequest<Array<Omit<OrganizationMember, "id"> & { userId: string }>>("/api/organization/members");
+  return members.map(member => ({ ...member, id: member.userId }));
 }
