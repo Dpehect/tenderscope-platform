@@ -4,6 +4,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   backend:
     runs-on: ubuntu-latest
@@ -12,8 +15,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
-      - run: dotnet restore TenderScope.sln
-      - run: dotnet build TenderScope.sln --configuration Release --no-restore
+      - run: dotnet restore apps/api/TenderScope.Api.csproj
+      - run: dotnet restore apps/worker/TenderScope.Worker.csproj
+      - run: dotnet build apps/api/TenderScope.Api.csproj --configuration Release --no-restore
+      - run: dotnet build apps/worker/TenderScope.Worker.csproj --configuration Release --no-restore
+      - run: dotnet test tests/TenderScope.Domain.Tests/TenderScope.Domain.Tests.csproj --configuration Release
 
   frontend:
     runs-on: ubuntu-latest
