@@ -6,7 +6,9 @@ using Xunit;
 namespace TenderScope.Tests;
 
 [CollectionDefinition("postgres", DisableParallelization = true)]
-public sealed class PostgresCollection : ICollectionFixture<PostgresFixture>;
+public sealed class PostgresCollection : ICollectionFixture<PostgresFixture>
+{
+}
 
 public sealed class PostgresFixture : IAsyncLifetime
 {
@@ -102,7 +104,10 @@ public sealed class PostgresTenantIsolationTests(PostgresFixture fixture)
         await db.ApplyProductionMigrationsAsync();
         await db.ApplyProductionMigrationsAsync();
 
-        var applied = await db.Database.SqlQueryRaw<string>("SELECT version FROM schema_migrations ORDER BY version").ToListAsync();
+        var applied = await db.Database
+            .SqlQueryRaw<string>("SELECT version AS \"Value\" FROM schema_migrations ORDER BY version")
+            .ToListAsync();
+
         Assert.NotEmpty(applied);
         Assert.Equal(applied.Count, applied.Distinct(StringComparer.Ordinal).Count());
     }
