@@ -12,6 +12,7 @@ using TenderScope.Infrastructure;
 using TenderScope.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
+ProductionConfiguration.Validate(builder.Configuration, builder.Environment);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddTenderScopeAuth(builder.Configuration);
 builder.Services.AddApiHardening();
@@ -42,7 +43,7 @@ app.UseAuthorization();
 app.MapOpenApi();
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 app.MapHealthChecks("/health/ready");
-app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "tenderscope-api", version = "3.2.0", utc = DateTimeOffset.UtcNow }));
+app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "tenderscope-api", version = "3.3.0", utc = DateTimeOffset.UtcNow }));
 app.MapTenderScopeAuth();
 app.MapAccountRecovery();
 app.MapOrganizationManagement();
