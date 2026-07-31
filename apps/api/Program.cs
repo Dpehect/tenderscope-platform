@@ -53,8 +53,9 @@ app.UseAuthorization();
 app.MapOpenApi();
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 app.MapHealthChecks("/health/ready");
-app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "tenderscope-api", version = "1.3.0", utc = DateTimeOffset.UtcNow }));
+app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "tenderscope-api", version = "1.4.0", utc = DateTimeOffset.UtcNow }));
 app.MapTenderScopeAuth();
+app.MapOrganizationManagement();
 
 app.MapGet("/api/tenders", async (string? q, string? country, string? category, DateTimeOffset? deadlineFrom, DateTimeOffset? deadlineTo, decimal? minValue, decimal? maxValue, string? sort, int? page, int? pageSize, ITenderRepository repository, CancellationToken cancellationToken) =>
     Results.Ok(await repository.SearchAdvancedAsync(q, country, category, deadlineFrom, deadlineTo, minValue, maxValue, sort ?? "published-desc", page ?? 1, pageSize ?? 30, cancellationToken)));
