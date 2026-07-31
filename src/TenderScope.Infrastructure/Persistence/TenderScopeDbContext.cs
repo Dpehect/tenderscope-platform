@@ -16,6 +16,9 @@ public sealed class TenderScopeDbContext(DbContextOptions<TenderScopeDbContext> 
     public DbSet<OrganizationMembership> OrganizationMemberships => Set<OrganizationMembership>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<OrganizationInvitation> OrganizationInvitations => Set<OrganizationInvitation>();
+    public DbSet<WatchlistMatch> WatchlistMatches => Set<WatchlistMatch>();
+    public DbSet<AppNotification> Notifications => Set<AppNotification>();
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -64,5 +67,12 @@ public sealed class TenderScopeDbContext(DbContextOptions<TenderScopeDbContext> 
         refresh.ToTable("refresh_tokens"); refresh.HasKey(x => x.Id); refresh.HasIndex(x => x.TokenHash).IsUnique(); refresh.HasIndex(x => new { x.UserId, x.OrganizationId, x.ExpiresAt }); refresh.Property(x => x.TokenHash).HasMaxLength(128); refresh.Property(x => x.ReplacedByTokenHash).HasMaxLength(128); refresh.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade); refresh.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
         var invitation = modelBuilder.Entity<OrganizationInvitation>();
         invitation.ToTable("organization_invitations"); invitation.HasKey(x => x.Id); invitation.HasIndex(x => x.TokenHash).IsUnique(); invitation.HasIndex(x => new { x.OrganizationId, x.Email, x.ExpiresAt }); invitation.Property(x => x.Email).HasMaxLength(320); invitation.Property(x => x.TokenHash).HasMaxLength(128); invitation.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade); invitation.HasOne<AppUser>().WithMany().HasForeignKey(x => x.InvitedByUserId).OnDelete(DeleteBehavior.Restrict);
+
+        var match = modelBuilder.Entity<WatchlistMatch>();
+        match.ToTable("watchlist_matches"); match.HasKey(x => x.Id); match.HasIndex(x => new { x.SavedSearchId, x.TenderId }).IsUnique(); match.HasIndex(x => new { x.OrganizationId, x.CreatedAt }); match.Property(x => x.Reason).HasMaxLength(1000); match.HasOne<SavedSearch>().WithMany().HasForeignKey(x => x.SavedSearchId).OnDelete(DeleteBehavior.Cascade); match.HasOne<Tender>().WithMany().HasForeignKey(x => x.TenderId).OnDelete(DeleteBehavior.Cascade);
+        var notification = modelBuilder.Entity<AppNotification>();
+        notification.ToTable("app_notifications"); notification.HasKey(x => x.Id); notification.HasIndex(x => new { x.OrganizationId, x.UserId, x.ReadAt, x.CreatedAt }); notification.Property(x => x.Type).HasMaxLength(80); notification.Property(x => x.Title).HasMaxLength(240); notification.Property(x => x.Message).HasMaxLength(1000); notification.Property(x => x.ResourceUrl).HasMaxLength(1000); notification.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        var preference = modelBuilder.Entity<NotificationPreference>();
+        preference.ToTable("notification_preferences"); preference.HasKey(x => x.Id); preference.HasIndex(x => new { x.OrganizationId, x.UserId }).IsUnique(); preference.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
     }
 }
