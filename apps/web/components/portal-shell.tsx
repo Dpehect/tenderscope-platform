@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { UserMenu } from "./user-menu";
 
 const nav = [
   ["Opportunities", "/opportunities"],
@@ -17,7 +18,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
         <nav aria-label="Primary navigation">
           {nav.map(([label, href]) => <Link key={href} href={href}>{label}</Link>)}
         </nav>
-        <Link href="/workspace" className="headerAction">Open workspace <span aria-hidden>↗</span></Link>
+        <UserMenu />
       </header>
       {children}
       <footer className="siteFooter">
