@@ -1,4 +1,5 @@
 import { getAnalytics, getSources } from "../../lib/api";
+import "./admin.css";
 
 export const dynamic = "force-dynamic";
 
