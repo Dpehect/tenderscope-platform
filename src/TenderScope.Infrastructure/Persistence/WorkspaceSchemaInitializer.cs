@@ -8,12 +8,16 @@ public static class WorkspaceSchemaInitializer
         db.Database.ExecuteSqlRawAsync("""
 ALTER TABLE workspace_items ADD COLUMN IF NOT EXISTS "OrganizationId" uuid NULL;
 ALTER TABLE workspace_items ADD COLUMN IF NOT EXISTS "CreatedByUserId" uuid NULL;
-ALTER TABLE workspace_items ALTER COLUMN "UserKey" DROP NOT NULL;
 ALTER TABLE saved_searches ADD COLUMN IF NOT EXISTS "OrganizationId" uuid NULL;
 ALTER TABLE saved_searches ADD COLUMN IF NOT EXISTS "CreatedByUserId" uuid NULL;
-ALTER TABLE saved_searches ALTER COLUMN "UserKey" DROP NOT NULL;
 
 DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'workspace_items' AND column_name = 'UserKey') THEN
+    ALTER TABLE workspace_items ALTER COLUMN "UserKey" DROP NOT NULL;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'saved_searches' AND column_name = 'UserKey') THEN
+    ALTER TABLE saved_searches ALTER COLUMN "UserKey" DROP NOT NULL;
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_workspace_items_organizations_OrganizationId') THEN
     ALTER TABLE workspace_items ADD CONSTRAINT "FK_workspace_items_organizations_OrganizationId" FOREIGN KEY ("OrganizationId") REFERENCES organizations("Id") ON DELETE CASCADE;
   END IF;
