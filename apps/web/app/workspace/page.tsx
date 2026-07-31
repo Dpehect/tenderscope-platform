@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { WorkspaceBoard } from "../../components/workspace-board";
 import { getOpportunities } from "../../lib/api";
+import "./workspace.css";
 
 export const metadata: Metadata = {
   title: "Workspace",
