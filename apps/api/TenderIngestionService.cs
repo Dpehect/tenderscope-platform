@@ -9,6 +9,7 @@ public sealed class TenderIngestionService(
     IEnumerable<ITenderSource> collectors,
     ITenderRepository tenders,
     ITenderSourceRepository sourceRepository,
+    OperationalMetrics metrics,
     ILogger<TenderIngestionService> logger)
 {
     public async Task<IngestionReport> RunAsync(CancellationToken cancellationToken)
@@ -47,6 +48,7 @@ public sealed class TenderIngestionService(
             }
         }
 
+        metrics.RecordIngestion(total, results.All(x => x.Success));
         return new IngestionReport(startedAt, DateTimeOffset.UtcNow, total, results);
     }
 }
@@ -61,9 +63,17 @@ public sealed class ScheduledIngestionWorker(IServiceScopeFactory scopeFactory, 
             try
             {
                 await using var scope = scopeFactory.CreateAsyncScope();
-                var ingestion = scope.ServiceProvider.GetRequiredService<TenderIngestionService>();
-                var report = await ingestion.RunAsync(stoppingToken);
-                logger.LogInformation("Scheduled ingestion completed with {Imported} imported records", report.Imported);
+                await using var jobLock = scope.ServiceProvider.GetRequiredService<DistributedJobLock>();
+                if (!await jobLock.TryAcquireAsync("tenderscope:ingestion", stoppingToken))
+                {
+                    logger.LogInformation("Scheduled ingestion skipped because another instance owns the distributed lock");
+                }
+                else
+                {
+                    var ingestion = scope.ServiceProvider.GetRequiredService<TenderIngestionService>();
+                    var report = await ingestion.RunAsync(stoppingToken);
+                    logger.LogInformation("Scheduled ingestion completed with {Imported} imported records", report.Imported);
+                }
             }
             catch (Exception exception) when (!stoppingToken.IsCancellationRequested)
             {
