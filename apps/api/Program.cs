@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using TenderScope.Api;
+using TenderScope.Api.Auth;
 using TenderScope.Application.Contracts;
 using TenderScope.Domain.Entities;
 using TenderScope.Infrastructure;
@@ -12,6 +13,7 @@ using TenderScope.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddTenderScopeAuth(builder.Configuration);
 builder.Services.AddScoped<TenderIngestionService>();
 builder.Services.AddHostedService<ScheduledIngestionWorker>();
 builder.Services.AddOpenApi();
@@ -19,6 +21,9 @@ builder.Services.AddHealthChecks().AddDbContextCheck<TenderScopeDbContext>();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true }));
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
         RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions
         {
@@ -29,7 +34,7 @@ builder.Services.AddRateLimiter(options =>
         }));
 });
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["http://localhost:3000"];
-builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 
 var app = builder.Build();
 app.Use(async (context, next) =>
@@ -43,10 +48,13 @@ app.Use(async (context, next) =>
 });
 app.UseRateLimiter();
 app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapOpenApi();
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 app.MapHealthChecks("/health/ready");
-app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "tenderscope-api", version = "1.2.0", utc = DateTimeOffset.UtcNow }));
+app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "tenderscope-api", version = "1.3.0", utc = DateTimeOffset.UtcNow }));
+app.MapTenderScopeAuth();
 
 app.MapGet("/api/tenders", async (string? q, string? country, string? category, DateTimeOffset? deadlineFrom, DateTimeOffset? deadlineTo, decimal? minValue, decimal? maxValue, string? sort, int? page, int? pageSize, ITenderRepository repository, CancellationToken cancellationToken) =>
     Results.Ok(await repository.SearchAdvancedAsync(q, country, category, deadlineFrom, deadlineTo, minValue, maxValue, sort ?? "published-desc", page ?? 1, pageSize ?? 30, cancellationToken)));
