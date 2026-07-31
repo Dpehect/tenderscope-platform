@@ -4,6 +4,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   backend:
     runs-on: ubuntu-latest
@@ -14,6 +17,7 @@ jobs:
           dotnet-version: 9.0.x
       - run: dotnet restore TenderScope.sln
       - run: dotnet build TenderScope.sln --configuration Release --no-restore
+      - run: dotnet test tests/TenderScope.Domain.Tests/TenderScope.Domain.Tests.csproj --configuration Release
 
   frontend:
     runs-on: ubuntu-latest
