@@ -1,8 +1,10 @@
+using System.Security.Cryptography;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
+using TenderScope.Api;
 using TenderScope.Application.Contracts;
 using TenderScope.Domain.Entities;
 using TenderScope.Infrastructure;
@@ -10,6 +12,8 @@ using TenderScope.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddScoped<TenderIngestionService>();
+builder.Services.AddHostedService<ScheduledIngestionWorker>();
 builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks().AddDbContextCheck<TenderScopeDbContext>();
 builder.Services.AddRateLimiter(options =>
@@ -42,7 +46,7 @@ app.UseCors();
 app.MapOpenApi();
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 app.MapHealthChecks("/health/ready");
-app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "tenderscope-api", version = "1.0.0", utc = DateTimeOffset.UtcNow }));
+app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "tenderscope-api", version = "1.1.0", utc = DateTimeOffset.UtcNow }));
 
 app.MapGet("/api/tenders", async (string? q, string? country, string? category, DateTimeOffset? deadlineFrom, DateTimeOffset? deadlineTo, decimal? minValue, decimal? maxValue, string? sort, int? page, int? pageSize, ITenderRepository repository, CancellationToken cancellationToken) =>
     Results.Ok(await repository.SearchAdvancedAsync(q, country, category, deadlineFrom, deadlineTo, minValue, maxValue, sort ?? "published-desc", page ?? 1, pageSize ?? 30, cancellationToken)));
@@ -75,6 +79,7 @@ var admin = app.MapGroup("/api/admin").AddEndpointFilter(async (context, next) =
     return await next(context);
 });
 admin.MapGet("/audit", async (TenderScopeDbContext db, int? take, CancellationToken cancellationToken) => Results.Ok(await db.AuditLogs.AsNoTracking().OrderByDescending(x => x.CreatedAt).Take(Math.Clamp(take ?? 100, 1, 500)).ToListAsync(cancellationToken)));
+admin.MapPost("/sync", async (TenderIngestionService ingestion, CancellationToken cancellationToken) => Results.Ok(await ingestion.RunAsync(cancellationToken)));
 admin.MapPost("/sources/{id:guid}/enabled", async (Guid id, bool enabled, TenderScopeDbContext db, HttpContext http, CancellationToken cancellationToken) =>
 {
     var source = await db.Sources.FindAsync([id], cancellationToken); if (source is null) return Results.NotFound();
