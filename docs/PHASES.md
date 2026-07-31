@@ -1,23 +1,29 @@
-# TenderScope Delivery Status
+# TenderScope delivery status
 
-## Completed
+## Delivered
 
-- Phase 1 — Foundation
-- Phase 2 — Core source domain and persistence
-- Phase 3 — Source registry and health management
-- Phase 4 — Resilient crawler HTTP foundation
+- Foundation: modular .NET solution, PostgreSQL, Next.js and Docker Compose
+- Procurement domain: tenders, institutions, categories, documents and source registry
+- Ingestion: scheduling, backoff, normalization, deduplication and dead-letter handling
+- Public adapters: EU TED and World Bank procurement notices
+- Discovery: advanced filtering, pagination, sorting, detail pages and analytics
+- Identity: registration, login, refresh rotation, recovery and email-verification flows
+- Multi-tenancy: organizations, roles, invitations and isolated workspaces
+- Qualification: pipeline stages, notes, tags, watchlists and notifications
+- Operations: health probes, audit history, metrics, source controls and report exports
+- Delivery: production validation, CI gates, Docker images and release checklist
+- Trust: public data-methodology and live source-registry page
 
-## Current capabilities
+## Current release state
 
-- Persistent tender and source models
-- Source scheduling and exponential failure backoff
-- Source health state and crawl timestamps
-- PostgreSQL indexes for common tender and source queries
-- Resilient named HTTP client with timeout and responsible user-agent
-- Public source-health and platform-statistics endpoints
+The application is feature-complete for a portfolio-grade beta. Frontend type checking and the Next.js production build pass. CI includes the .NET build/test suite and PostgreSQL tenant-isolation coverage.
 
-## Next delivery
+Production launch still requires environment-specific credentials, a managed PostgreSQL instance, DNS/TLS, transactional email configuration, initial source verification and execution of every gate in `PRODUCTION_RELEASE_CHECKLIST.md`.
 
-- Phase 5 — Parser engine for JSON, XML, RSS, Atom, CSV and HTML
-- Phase 6 — First real public procurement adapters
-- Phase 7 — Normalization pipeline
+## Next product increments
+
+1. Add jurisdiction-specific adapters selected after legal and data-quality review.
+2. Add organization-configurable email delivery and digest scheduling.
+3. Introduce saved analytical views and team-level conversion metrics.
+4. Add browser-level E2E coverage for the complete registration-to-qualification journey.
+5. Add OpenTelemetry export and production alert routing.

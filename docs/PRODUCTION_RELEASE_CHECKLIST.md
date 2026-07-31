@@ -1,7 +1,7 @@
 # TenderScope Production Release Checklist
 
 ## Required configuration
-- `ConnectionStrings__Default`
+- `ConnectionStrings__Postgres`
 - `Jwt__Secret` (minimum 32 characters)
 - `Jwt__Issuer`
 - `Jwt__Audience`

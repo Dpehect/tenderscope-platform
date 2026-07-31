@@ -17,7 +17,7 @@ public sealed class AppUser
     public Guid Id { get; private set; } = Guid.NewGuid();
     public required string Email { get; init; }
     public required string DisplayName { get; init; }
-    public required string PasswordHash { get; private set; }
+    public string PasswordHash { get; private set; } = null!;
     public DateTimeOffset CreatedAt { get; private set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? LastLoginAt { get; private set; }
     public int FailedLoginCount { get; private set; }

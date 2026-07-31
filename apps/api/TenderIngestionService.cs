@@ -88,7 +88,7 @@ public sealed class TenderIngestionService(
         db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO crawl_runs (\"Id\", \"SourceId\", \"SourceKey\", \"ParserVersion\", \"Status\", \"Attempt\", \"StartedAt\") VALUES ({id}, {sourceId}, {key}, {parserVersion}, {0}, {attempt}, {DateTimeOffset.UtcNow})", ct);
 
     private Task<int> CompleteRunAsync(Guid id, int fetched, int imported, int rejected, TimeSpan duration, CancellationToken ct) =>
-        db.Database.ExecuteSqlInterpolatedAsync($"UPDATE crawl_runs SET \"Status\"={rejected > 0 ? 2 : 1}, \"FetchedCount\"={fetched}, \"ImportedCount\"={imported}, \"RejectedCount\"={rejected}, \"DurationMilliseconds\"={(long)duration.TotalMilliseconds}, \"CompletedAt\"={DateTimeOffset.UtcNow} WHERE \"Id\"={id}", ct);
+        db.Database.ExecuteSqlInterpolatedAsync($"UPDATE crawl_runs SET \"Status\"={(rejected > 0 ? 2 : 1)}, \"FetchedCount\"={fetched}, \"ImportedCount\"={imported}, \"RejectedCount\"={rejected}, \"DurationMilliseconds\"={(long)duration.TotalMilliseconds}, \"CompletedAt\"={DateTimeOffset.UtcNow} WHERE \"Id\"={id}", ct);
 
     private Task<int> FailRunAsync(Guid id, Exception exception, TimeSpan duration, CancellationToken ct)
     {

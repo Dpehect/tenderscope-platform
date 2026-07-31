@@ -45,6 +45,9 @@ public sealed class TenderRepository(TenderScopeDbContext dbContext) : ITenderRe
     public Task<Tender?> FindBySourceAsync(string sourceKey, string externalId, CancellationToken cancellationToken) =>
         dbContext.Tenders.SingleOrDefaultAsync(x => x.SourceKey == sourceKey && x.ExternalId == externalId, cancellationToken);
 
+    public Task<Tender?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.Tenders.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+
     public Task<Tender?> FindByFingerprintAsync(string contentHash, CancellationToken cancellationToken) =>
         dbContext.Tenders.FirstOrDefaultAsync(x => x.ContentHash == contentHash, cancellationToken);
 

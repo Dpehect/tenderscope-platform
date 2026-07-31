@@ -22,6 +22,12 @@ services:
     environment:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB:-tenderscope};Username=${POSTGRES_USER:-tenderscope};Password=${POSTGRES_PASSWORD:-tenderscope}
+      Jwt__Secret: ${JWT_SECRET:-local-development-secret-change-before-production-2026}
+      Jwt__Issuer: TenderScope
+      Jwt__Audience: TenderScope.Web
+      Jwt__AllowHttp: "true"
+      Cors__AllowedOrigins__0: http://localhost:3000
+      Admin__ApiKey: ${ADMIN_API_KEY:-local-admin-key-change-before-production}
     ports:
       - "8080:8080"
     depends_on:

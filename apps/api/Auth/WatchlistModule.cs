@@ -51,7 +51,7 @@ public static class WatchlistModule
             return Results.Ok(entity);
         });
 
-        group.MapPatch("/{id:guid}/notifications", async (Guid id, NotificationPreferenceRequest request, ClaimsPrincipal principal, TenderScopeDbContext db, HttpContext http, CancellationToken ct) =>
+        group.MapPatch("/{id:guid}/notifications", async (Guid id, WatchlistNotificationRequest request, ClaimsPrincipal principal, TenderScopeDbContext db, HttpContext http, CancellationToken ct) =>
         {
             var tenant = TenantContext.From(principal);
             if (tenant is null) return Results.Unauthorized();
@@ -99,4 +99,4 @@ public static class WatchlistModule
 }
 
 public sealed record WatchlistRequest(string Name, string? Query, string? Country, string? Category, bool NotificationsEnabled);
-public sealed record NotificationPreferenceRequest(bool Enabled);
+public sealed record WatchlistNotificationRequest(bool Enabled);

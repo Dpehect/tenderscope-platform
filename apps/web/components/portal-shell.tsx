@@ -5,6 +5,7 @@ import { UserMenu } from "./user-menu";
 const nav = [
   ["Opportunities", "/opportunities"],
   ["Market", "/analytics"],
+  ["Methodology", "/methodology"],
   ["Organization", "/analytics/organization"],
   ["Search", "/search"],
   ["Workspace", "/workspace"],
@@ -33,6 +34,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
           <Link href="/opportunities">Explore</Link>
           <Link href="/analytics">Signals</Link>
           <Link href="/search">Search</Link>
+          <Link href="/methodology">Methodology</Link>
           <a href="https://github.com/Dpehect/tenderscope-platform" target="_blank" rel="noreferrer">Source</a>
         </div>
       </footer>
