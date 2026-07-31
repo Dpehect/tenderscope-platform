@@ -59,10 +59,10 @@ public sealed class SavedSearch
     public Guid Id { get; private set; } = Guid.NewGuid();
     public Guid OrganizationId { get; init; }
     public Guid CreatedByUserId { get; init; }
-    public required string Name { get; private set; }
-    public string? Query { get; private set; }
-    public string? Country { get; private set; }
-    public string? Category { get; private set; }
+    public required string Name { get; set; }
+    public string? Query { get; set; }
+    public string? Country { get; set; }
+    public string? Category { get; set; }
     public bool NotificationsEnabled { get; private set; } = true;
     public DateTimeOffset CreatedAt { get; private set; } = DateTimeOffset.UtcNow;
 
