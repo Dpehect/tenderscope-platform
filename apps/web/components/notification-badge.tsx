@@ -16,7 +16,7 @@ export function NotificationBadge() {
       const session = getStoredSession();
       setSignedIn(Boolean(session));
       if (!session) { setUnread(0); return; }
-      listNotifications(true, 1).then(result => { if (active) setUnread(result.unread); }).catch(() => undefined);
+      listNotifications(true).then(result => { if (active) setUnread(result.unread); }).catch(() => undefined);
     };
     load();
     const interval = window.setInterval(load, 60000);
