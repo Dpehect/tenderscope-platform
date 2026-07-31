@@ -14,8 +14,10 @@ jobs:
         with:
           dotnet-version: 9.0.x
       - run: dotnet restore apps/api/TenderScope.Api.csproj
+      - run: dotnet list apps/api/TenderScope.Api.csproj package --vulnerable --include-transitive
       - run: dotnet build apps/api/TenderScope.Api.csproj -c Release --no-restore
       - run: dotnet test tests/TenderScope.Tests/TenderScope.Tests.csproj -c Release
+      - run: docker build -f apps/api/Dockerfile -t tenderscope-api:ci .
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -29,7 +31,9 @@ jobs:
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
       - run: npm ci
+      - run: npm audit --audit-level=high
       - run: npm run typecheck
       - run: npm run build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8080
+          NEXT_PUBLIC_SITE_URL: https://example.com
