@@ -36,9 +36,17 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(45);
             client.DefaultRequestHeaders.UserAgent.ParseAdd("TenderScopeBot/1.0");
         });
+        services.AddHttpClient<WorldBankProcurementSource>(client =>
+        {
+            client.BaseAddress = new Uri("https://search.worldbank.org/");
+            client.Timeout = TimeSpan.FromSeconds(60);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("TenderScopeBot/1.0");
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+        });
 
         services.AddSingleton<ITenderSource, DemoTenderSource>();
         services.AddScoped<ITenderSource>(provider => provider.GetRequiredService<TedSearchTenderSource>());
+        services.AddScoped<ITenderSource>(provider => provider.GetRequiredService<WorldBankProcurementSource>());
         return services;
     }
 }
