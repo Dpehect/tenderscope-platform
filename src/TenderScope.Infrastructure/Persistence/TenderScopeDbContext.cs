@@ -8,6 +8,7 @@ public sealed class TenderScopeDbContext(DbContextOptions<TenderScopeDbContext> 
     public DbSet<Tender> Tenders => Set<Tender>();
     public DbSet<TenderSource> Sources => Set<TenderSource>();
     public DbSet<WorkspaceItem> WorkspaceItems => Set<WorkspaceItem>();
+    public DbSet<WorkspaceActivity> WorkspaceActivities => Set<WorkspaceActivity>();
     public DbSet<SavedSearch> SavedSearches => Set<SavedSearch>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Organization> Organizations => Set<Organization>();
@@ -29,11 +30,19 @@ public sealed class TenderScopeDbContext(DbContextOptions<TenderScopeDbContext> 
 
         var workspace = modelBuilder.Entity<WorkspaceItem>();
         workspace.ToTable("workspace_items"); workspace.HasKey(x => x.Id);
-        workspace.HasIndex(x => new { x.OrganizationId, x.TenderId }).IsUnique(); workspace.HasIndex(x => new { x.OrganizationId, x.Stage, x.UpdatedAt });
-        workspace.Property(x => x.Notes).HasMaxLength(4000);
+        workspace.HasIndex(x => new { x.OrganizationId, x.TenderId }).IsUnique(); workspace.HasIndex(x => new { x.OrganizationId, x.Stage, x.Position });
+        workspace.Property(x => x.Notes).HasMaxLength(4000); workspace.Property(x => x.Tags).HasColumnType("text[]"); workspace.Property(x => x.Position).HasPrecision(18, 6);
         workspace.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
         workspace.HasOne<AppUser>().WithMany().HasForeignKey(x => x.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
+        workspace.HasOne<AppUser>().WithMany().HasForeignKey(x => x.AssigneeUserId).OnDelete(DeleteBehavior.SetNull);
         workspace.HasOne<Tender>().WithMany().HasForeignKey(x => x.TenderId).OnDelete(DeleteBehavior.Cascade);
+
+        var activity = modelBuilder.Entity<WorkspaceActivity>();
+        activity.ToTable("workspace_activities"); activity.HasKey(x => x.Id); activity.HasIndex(x => new { x.OrganizationId, x.CreatedAt }); activity.HasIndex(x => new { x.WorkspaceItemId, x.CreatedAt });
+        activity.Property(x => x.Action).HasMaxLength(120); activity.Property(x => x.Detail).HasMaxLength(2000);
+        activity.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
+        activity.HasOne<WorkspaceItem>().WithMany().HasForeignKey(x => x.WorkspaceItemId).OnDelete(DeleteBehavior.Cascade);
+        activity.HasOne<AppUser>().WithMany().HasForeignKey(x => x.ActorUserId).OnDelete(DeleteBehavior.Restrict);
 
         var search = modelBuilder.Entity<SavedSearch>();
         search.ToTable("saved_searches"); search.HasKey(x => x.Id); search.HasIndex(x => new { x.OrganizationId, x.CreatedAt });
@@ -46,27 +55,14 @@ public sealed class TenderScopeDbContext(DbContextOptions<TenderScopeDbContext> 
         audit.Property(x => x.Action).HasMaxLength(120); audit.Property(x => x.Resource).HasMaxLength(240); audit.Property(x => x.ActorKey).HasMaxLength(160); audit.Property(x => x.Detail).HasMaxLength(4000); audit.Property(x => x.IpAddress).HasMaxLength(64);
 
         var organization = modelBuilder.Entity<Organization>();
-        organization.ToTable("organizations"); organization.HasKey(x => x.Id); organization.HasIndex(x => x.Slug).IsUnique();
-        organization.Property(x => x.Name).HasMaxLength(180); organization.Property(x => x.Slug).HasMaxLength(120);
-
+        organization.ToTable("organizations"); organization.HasKey(x => x.Id); organization.HasIndex(x => x.Slug).IsUnique(); organization.Property(x => x.Name).HasMaxLength(180); organization.Property(x => x.Slug).HasMaxLength(120);
         var user = modelBuilder.Entity<AppUser>();
-        user.ToTable("app_users"); user.HasKey(x => x.Id); user.HasIndex(x => x.Email).IsUnique();
-        user.Property(x => x.Email).HasMaxLength(320); user.Property(x => x.DisplayName).HasMaxLength(160); user.Property(x => x.PasswordHash).HasMaxLength(1000);
-
+        user.ToTable("app_users"); user.HasKey(x => x.Id); user.HasIndex(x => x.Email).IsUnique(); user.Property(x => x.Email).HasMaxLength(320); user.Property(x => x.DisplayName).HasMaxLength(160); user.Property(x => x.PasswordHash).HasMaxLength(1000);
         var membership = modelBuilder.Entity<OrganizationMembership>();
-        membership.ToTable("organization_memberships"); membership.HasKey(x => x.Id); membership.HasIndex(x => new { x.OrganizationId, x.UserId }).IsUnique(); membership.HasIndex(x => new { x.UserId, x.Role });
-        membership.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
-        membership.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-
+        membership.ToTable("organization_memberships"); membership.HasKey(x => x.Id); membership.HasIndex(x => new { x.OrganizationId, x.UserId }).IsUnique(); membership.HasIndex(x => new { x.UserId, x.Role }); membership.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade); membership.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         var refresh = modelBuilder.Entity<RefreshToken>();
-        refresh.ToTable("refresh_tokens"); refresh.HasKey(x => x.Id); refresh.HasIndex(x => x.TokenHash).IsUnique(); refresh.HasIndex(x => new { x.UserId, x.ExpiresAt });
-        refresh.Property(x => x.TokenHash).HasMaxLength(128); refresh.Property(x => x.ReplacedByTokenHash).HasMaxLength(128);
-        refresh.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-
+        refresh.ToTable("refresh_tokens"); refresh.HasKey(x => x.Id); refresh.HasIndex(x => x.TokenHash).IsUnique(); refresh.HasIndex(x => new { x.UserId, x.ExpiresAt }); refresh.Property(x => x.TokenHash).HasMaxLength(128); refresh.Property(x => x.ReplacedByTokenHash).HasMaxLength(128); refresh.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         var invitation = modelBuilder.Entity<OrganizationInvitation>();
-        invitation.ToTable("organization_invitations"); invitation.HasKey(x => x.Id); invitation.HasIndex(x => x.TokenHash).IsUnique(); invitation.HasIndex(x => new { x.OrganizationId, x.Email, x.ExpiresAt });
-        invitation.Property(x => x.Email).HasMaxLength(320); invitation.Property(x => x.TokenHash).HasMaxLength(128);
-        invitation.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
-        invitation.HasOne<AppUser>().WithMany().HasForeignKey(x => x.InvitedByUserId).OnDelete(DeleteBehavior.Restrict);
+        invitation.ToTable("organization_invitations"); invitation.HasKey(x => x.Id); invitation.HasIndex(x => x.TokenHash).IsUnique(); invitation.HasIndex(x => new { x.OrganizationId, x.Email, x.ExpiresAt }); invitation.Property(x => x.Email).HasMaxLength(320); invitation.Property(x => x.TokenHash).HasMaxLength(128); invitation.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade); invitation.HasOne<AppUser>().WithMany().HasForeignKey(x => x.InvitedByUserId).OnDelete(DeleteBehavior.Restrict);
     }
 }
