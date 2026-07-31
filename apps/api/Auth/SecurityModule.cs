@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
-using TenderScope.Domain.Entities;
 using TenderScope.Infrastructure.Persistence;
 
 namespace TenderScope.Api.Auth;
@@ -16,8 +15,8 @@ public static class SecurityModule
             if (!Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)) return Results.Unauthorized();
             var sessions = await db.RefreshTokens.AsNoTracking()
                 .Where(x => x.UserId == userId && x.RevokedAt == null && x.ExpiresAt > DateTimeOffset.UtcNow)
-                .OrderByDescending(x => x.CreatedAt)
-                .Select(x => new { x.Id, x.OrganizationId, x.CreatedAt, x.ExpiresAt })
+                .OrderByDescending(x => x.LastUsedAt)
+                .Select(x => new { x.Id, x.OrganizationId, x.FamilyId, x.IpAddress, x.UserAgent, x.CreatedAt, x.LastUsedAt, x.ExpiresAt })
                 .ToListAsync(ct);
             return Results.Ok(sessions);
         });
@@ -27,9 +26,10 @@ public static class SecurityModule
             if (!Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)) return Results.Unauthorized();
             var token = await db.RefreshTokens.SingleOrDefaultAsync(x => x.Id == id && x.UserId == userId, ct);
             if (token is null) return Results.NotFound();
-            if (token.IsActive) token.Revoke(DateTimeOffset.UtcNow);
+            var family = await db.RefreshTokens.Where(x => x.UserId == userId && x.FamilyId == token.FamilyId && x.RevokedAt == null).ToListAsync(ct);
+            foreach (var item in family) item.Revoke(DateTimeOffset.UtcNow);
             await db.SaveChangesAsync(ct);
-            return Results.NoContent();
+            return Results.Ok(new { revoked = family.Count });
         });
 
         group.MapPost("/sessions/revoke-all", async (ClaimsPrincipal principal, TenderScopeDbContext db, CancellationToken ct) =>
