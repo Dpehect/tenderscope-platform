@@ -57,6 +57,11 @@ app.MapCrawlerOperations();
 app.MapSecurityManagement();
 app.MapOperationalMetrics();
 app.MapGet("/api/tenders", async (string? q, string? country, string? category, DateTimeOffset? deadlineFrom, DateTimeOffset? deadlineTo, decimal? minValue, decimal? maxValue, string? sort, int? page, int? pageSize, ITenderRepository repository, CancellationToken ct) => Results.Ok(await repository.SearchAdvancedAsync(q, country, category, deadlineFrom, deadlineTo, minValue, maxValue, sort ?? "published-desc", page ?? 1, pageSize ?? 30, ct)));
+app.MapGet("/api/tenders/{id:guid}", async (Guid id, ITenderRepository repository, CancellationToken ct) =>
+{
+    var tender = await repository.FindByIdAsync(id, ct);
+    return tender is null ? Results.NotFound(new { error = "Opportunity not found." }) : Results.Ok(tender);
+});
 app.MapGet("/api/sources", async (ITenderSourceRepository repository, CancellationToken ct) => Results.Ok(await repository.ListAsync(ct)));
 app.MapGet("/api/stats", async (ITenderRepository tenders, ITenderSourceRepository sources, CancellationToken ct) => { var sourceList = await sources.ListAsync(ct); return Results.Ok(new { totalTenders = await tenders.CountAsync(ct), totalSources = sourceList.Count, healthySources = sourceList.Count(x => x.Health == SourceHealth.Healthy), generatedAt = DateTimeOffset.UtcNow }); });
 var admin = app.MapGroup("/api/admin-key").AddEndpointFilter(async (context, next) => { var configuredKey = builder.Configuration["Admin:ApiKey"]; var suppliedKey = context.HttpContext.Request.Headers["X-Admin-Key"].ToString(); if (string.IsNullOrWhiteSpace(configuredKey)) return Results.Unauthorized(); var expected = System.Text.Encoding.UTF8.GetBytes(configuredKey); var actual = System.Text.Encoding.UTF8.GetBytes(suppliedKey.PadRight(configuredKey.Length)[..configuredKey.Length]); return CryptographicOperations.FixedTimeEquals(expected, actual) ? await next(context) : Results.Unauthorized(); });

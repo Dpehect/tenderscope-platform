@@ -5,7 +5,7 @@ public static class ProductionConfiguration
     public static void Validate(IConfiguration configuration, IHostEnvironment environment)
     {
         var errors = new List<string>();
-        Require(configuration, errors, "ConnectionStrings:Default");
+        Require(configuration, errors, "ConnectionStrings:Postgres");
         Require(configuration, errors, "Jwt:Secret", minimumLength: 32);
         Require(configuration, errors, "Jwt:Issuer");
         Require(configuration, errors, "Jwt:Audience");
