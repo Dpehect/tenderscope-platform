@@ -1,27 +1,26 @@
-type Tender = { id: string; title: string; buyerName: string; countryCode: string; category?: string; estimatedValue?: number; currency?: string; deadlineAt?: string; sourceUrl: string };
-type SearchResult = { items: Tender[]; total: number; countries: Record<string, number>; categories: Record<string, number> };
-
-async function getTenders(): Promise<SearchResult> {
-  const api = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
-  try {
-    const response = await fetch(`${api}/api/tenders?page=1&pageSize=30&sort=published-desc`, { cache: "no-store" });
-    if (!response.ok) return { items: [], total: 0, countries: {}, categories: {} };
-    return response.json();
-  } catch { return { items: [], total: 0, countries: {}, categories: {} }; }
-}
+import Link from "next/link";
+import { getOpportunities, getStats } from "../lib/api";
 
 export default async function Home() {
-  const result = await getTenders();
-  const tenders = result.items;
-  return <main>
-    <header className="hero">
-      <div className="eyebrow">PUBLIC PROCUREMENT INTELLIGENCE</div>
-      <h1>Find serious public-sector opportunities before they disappear.</h1>
-      <p>TenderScope collects, normalizes and verifies open tender data without paid data providers.</p>
-    </header>
-    <section className="metrics"><article><strong>{result.total}</strong><span>normalized records</span></article><article><strong>{Object.keys(result.countries).length}</strong><span>countries indexed</span></article><article><strong>{Object.keys(result.categories).length}</strong><span>market categories</span></article></section>
-    <section className="panel"><div className="panelHeader"><h2>Latest opportunities</h2><span>Faceted open-data feed</span></div>
-      <div className="grid">{tenders.length === 0 ? <div className="empty">The crawler worker has not completed its first cycle yet.</div> : tenders.map(tender => <a className="card" href={tender.sourceUrl} key={tender.id} target="_blank" rel="noreferrer"><div className="meta"><span>{tender.countryCode}</span><span>{tender.category ?? "General"}</span></div><h3>{tender.title}</h3><p>{tender.buyerName}</p><footer><span>{tender.estimatedValue ? `${tender.estimatedValue.toLocaleString()} ${tender.currency ?? ""}` : "Value undisclosed"}</span><span>{tender.deadlineAt ? new Date(tender.deadlineAt).toLocaleDateString() : "Open"}</span></footer></a>)}</div>
+  const [result, stats] = await Promise.all([getOpportunities("pageSize=6&sort=deadline-asc"), getStats()]);
+  return <main className="homePage">
+    <section className="homeHero">
+      <div className="heroTopline"><span>PUBLIC PROCUREMENT / OPEN INTELLIGENCE</span><span>EU + GLOBAL SOURCES</span></div>
+      <div className="heroGrid">
+        <h1>Turn public demand<br/>into <em>qualified</em><br/>opportunity.</h1>
+        <div className="heroAside"><p>TenderScope transforms fragmented official notices into a traceable, searchable decision system for serious teams.</p><Link href="/opportunities" className="primaryCta">Enter opportunity index <span>↗</span></Link></div>
+      </div>
+      <div className="heroTicker"><span>LIVE INDEX</span><strong>{stats.totalTenders.toLocaleString()}</strong><i/> <span>HEALTHY SOURCES</span><strong>{stats.healthySources}/{stats.totalSources}</strong><i/> <span>MARKETS</span><strong>{Object.keys(result.countries).length}</strong></div>
     </section>
+    <section className="thesisSection">
+      <div className="sectionLabel">WHY TENDERSCOPE</div>
+      <div><h2>Less noise.<br/>More conviction.</h2><p>Every opportunity is normalized, deduplicated and linked to its official origin. No paid data gate. No opaque recommendation layer.</p></div>
+      <div className="thesisSteps"><article><span>01</span><strong>Discover</strong><p>Collect from official and openly accessible procurement sources.</p></article><article><span>02</span><strong>Normalize</strong><p>Align markets, dates, categories, values and institutional names.</p></article><article><span>03</span><strong>Decide</strong><p>Shortlist, qualify and move the right notices through your pipeline.</p></article></div>
+    </section>
+    <section className="featuredSection">
+      <header><div><span className="kicker">SELECTED SIGNALS</span><h2>Open now.</h2></div><Link href="/opportunities">View full index ↗</Link></header>
+      <div className="featuredGrid">{result.items.map((item,index)=><a href={item.sourceUrl} target="_blank" rel="noreferrer" className="featuredCard" key={item.id}><span className="featuredIndex">0{index+1}</span><div className="featuredMeta"><span>{item.countryCode}</span><span>{item.category ?? "General"}</span></div><h3>{item.title}</h3><p>{item.buyerName}</p><footer><span>{item.estimatedValue ? `${new Intl.NumberFormat("en",{notation:"compact"}).format(item.estimatedValue)} ${item.currency ?? ""}` : "Value undisclosed"}</span><span>{item.deadlineAt ? new Date(item.deadlineAt).toLocaleDateString("en",{month:"short",day:"numeric"}) : "Open"}</span></footer></a>)}</div>
+    </section>
+    <section className="closingStatement"><span>BUILD A BETTER PIPELINE</span><h2>The next public contract<br/>should not be hidden<br/>in a bad website.</h2><Link href="/workspace">Start qualifying opportunities <span>↗</span></Link></section>
   </main>;
 }
