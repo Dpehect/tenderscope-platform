@@ -77,8 +77,9 @@ await using (var scope = app.Services.CreateAsyncScope())
     await db.ApplyProductionMigrationsAsync();
     var demo = new TenderSource { Key = "demo-open-source", Name = "TenderScope deterministic validation source", BaseUrl = new Uri("https://example.org/tenders"), Format = SourceFormat.Json, CountryCode = "INT" };
     var ted = new TenderSource { Key = "eu-ted-search", Name = "European Union Tenders Electronic Daily", BaseUrl = new Uri("https://api.ted.europa.eu/v3/notices/search"), Format = SourceFormat.Json, CountryCode = "EU" }; ted.ConfigureInterval(360);
+    var worldBank = new TenderSource { Key = "world-bank-procurement", Name = "World Bank Procurement Notices", BaseUrl = new Uri("https://search.worldbank.org/api/procnotices"), Format = SourceFormat.Json, CountryCode = "INT" }; worldBank.ConfigureInterval(720);
     var sources = scope.ServiceProvider.GetRequiredService<ITenderSourceRepository>();
-    foreach (var seed in new[] { demo, ted }) if (await sources.FindByKeyAsync(seed.Key, CancellationToken.None) is null) await sources.AddAsync(seed, CancellationToken.None);
+    foreach (var seed in new[] { demo, ted, worldBank }) if (await sources.FindByKeyAsync(seed.Key, CancellationToken.None) is null) await sources.AddAsync(seed, CancellationToken.None);
     await sources.SaveChangesAsync(CancellationToken.None);
 }
 app.Run();
