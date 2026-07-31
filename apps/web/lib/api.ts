@@ -29,6 +29,25 @@ export type PlatformStats = {
   generatedAt: string;
 };
 
+export type TenderSource = {
+  id: string;
+  key: string;
+  name: string;
+  countryCode: string;
+  health: number;
+  consecutiveFailures: number;
+  nextCrawlAt?: string;
+  lastSuccessAt?: string;
+  lastError?: string;
+};
+
+export type AnalyticsSnapshot = {
+  total: number;
+  disclosedValue: number;
+  countries: Record<string, number>;
+  categories: Record<string, number>;
+};
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 async function request<T>(path: string, fallback: T): Promise<T> {
@@ -51,4 +70,18 @@ export function getStats() {
   return request<PlatformStats>("/api/stats", {
     totalTenders: 0, totalSources: 0, healthySources: 0, generatedAt: new Date(0).toISOString()
   });
+}
+
+export function getSources() {
+  return request<TenderSource[]>("/api/sources", []);
+}
+
+export async function getAnalytics(): Promise<AnalyticsSnapshot> {
+  const result = await getOpportunities("page=1&pageSize=100&sort=value-desc");
+  return {
+    total: result.total,
+    disclosedValue: result.items.reduce((sum, item) => sum + (item.estimatedValue ?? 0), 0),
+    countries: result.countries,
+    categories: result.categories
+  };
 }
