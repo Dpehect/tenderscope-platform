@@ -54,6 +54,7 @@ export function UserMenu() {
         </select>
       </label>}
       <Link href="/workspace" onClick={() => setOpen(false)}>Workspace</Link>
+      <Link href="/notifications" onClick={() => setOpen(false)}>Notifications</Link>
       <Link href="/settings/organization" onClick={() => setOpen(false)}>Organization settings</Link>
       <Link href="/invitations/accept" onClick={() => setOpen(false)}>Accept invitation</Link>
       <button onClick={signOut}>Sign out</button>
