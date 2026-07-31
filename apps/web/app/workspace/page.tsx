@@ -4,6 +4,7 @@ import { WorkspaceAuthGate } from "../../components/workspace-auth-gate";
 import { WatchlistPanel } from "../../components/watchlist-panel";
 import { getOpportunities } from "../../lib/api";
 import "./workspace.css";
+import "./watchlist.css";
 
 export const metadata: Metadata = {
   title: "Workspace",
