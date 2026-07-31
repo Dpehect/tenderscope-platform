@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function AcceptInvitationPage() {
   return <main className="invitationAcceptPage">
-    <WorkspaceAuthGate redirectPath="/invitations/accept">
+    <WorkspaceAuthGate next="/invitations/accept" label="ORGANIZATION INVITATION">
       <InvitationAcceptance />
     </WorkspaceAuthGate>
   </main>;
