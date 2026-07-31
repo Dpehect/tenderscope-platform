@@ -40,8 +40,9 @@ app.UseAuthorization();
 app.MapOpenApi();
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 app.MapHealthChecks("/health/ready");
-app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "tenderscope-api", version = "3.0.0", utc = DateTimeOffset.UtcNow }));
+app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "tenderscope-api", version = "3.1.0", utc = DateTimeOffset.UtcNow }));
 app.MapTenderScopeAuth();
+app.MapAccountRecovery();
 app.MapOrganizationManagement();
 app.MapTenantWorkspace();
 app.MapWatchlists();
@@ -65,6 +66,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     await using (var command = connection.CreateCommand()) { command.CommandText = "SELECT to_regclass('public.tender_sources') IS NOT NULL"; var exists = (bool)(await command.ExecuteScalarAsync() ?? false); if (!exists) await db.GetService<IRelationalDatabaseCreator>().CreateTablesAsync(); }
     await connection.CloseAsync();
     await db.EnsureIdentitySchemaAsync();
+    await db.EnsureAccountRecoverySchemaAsync();
     await db.EnsureWorkspaceTenantSchemaAsync();
     await db.EnsureNotificationSchemaAsync();
     var demo = new TenderSource { Key = "demo-open-source", Name = "TenderScope deterministic validation source", BaseUrl = new Uri("https://example.org/tenders"), Format = SourceFormat.Json, CountryCode = "INT" };
