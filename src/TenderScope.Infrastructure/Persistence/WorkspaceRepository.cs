@@ -7,7 +7,10 @@ namespace TenderScope.Infrastructure.Persistence;
 public sealed class WorkspaceRepository(TenderScopeDbContext db) : IWorkspaceRepository
 {
     public async Task<IReadOnlyList<WorkspaceItem>> ListItemsAsync(Guid organizationId, CancellationToken cancellationToken) =>
-        await db.WorkspaceItems.AsNoTracking().Where(x => x.OrganizationId == organizationId).OrderByDescending(x => x.UpdatedAt).ToListAsync(cancellationToken);
+        await db.WorkspaceItems.AsNoTracking()
+            .Where(x => x.OrganizationId == organizationId)
+            .OrderBy(x => x.Stage).ThenBy(x => x.Position).ThenByDescending(x => x.UpdatedAt)
+            .ToListAsync(cancellationToken);
 
     public async Task<WorkspaceItem> SaveItemAsync(Guid organizationId, Guid userId, Guid tenderId, OpportunityStage stage, string? notes, CancellationToken cancellationToken)
     {
@@ -16,6 +19,9 @@ public sealed class WorkspaceRepository(TenderScopeDbContext db) : IWorkspaceRep
         {
             item = new WorkspaceItem { OrganizationId = organizationId, CreatedByUserId = userId, TenderId = tenderId };
             item.Update(stage, notes);
+            var lastPosition = await db.WorkspaceItems.Where(x => x.OrganizationId == organizationId && x.Stage == stage)
+                .Select(x => (decimal?)x.Position).MaxAsync(cancellationToken) ?? 0;
+            item.Move(stage, lastPosition + 1000);
             await db.WorkspaceItems.AddAsync(item, cancellationToken);
         }
         else item.Update(stage, notes);
@@ -33,15 +39,7 @@ public sealed class WorkspaceRepository(TenderScopeDbContext db) : IWorkspaceRep
 
     public async Task<SavedSearch> AddSearchAsync(Guid organizationId, Guid userId, SavedSearch search, CancellationToken cancellationToken)
     {
-        var entity = new SavedSearch
-        {
-            OrganizationId = organizationId,
-            CreatedByUserId = userId,
-            Name = search.Name,
-            Query = search.Query,
-            Country = search.Country,
-            Category = search.Category
-        };
+        var entity = new SavedSearch { OrganizationId = organizationId, CreatedByUserId = userId, Name = search.Name, Query = search.Query, Country = search.Country, Category = search.Category };
         entity.SetNotifications(search.NotificationsEnabled);
         await db.SavedSearches.AddAsync(entity, cancellationToken);
         return entity;
