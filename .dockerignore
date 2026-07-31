@@ -1,0 +1,12 @@
+**/bin
+**/obj
+**/.next
+**/node_modules
+**/*.tsbuildinfo
+.git
+.github
+.env
+.env.*
+!.env.example
+coverage
+tests/**/TestResults
