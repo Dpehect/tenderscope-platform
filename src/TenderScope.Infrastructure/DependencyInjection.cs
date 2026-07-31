@@ -18,6 +18,7 @@ public static class DependencyInjection
 
         services.AddScoped<ITenderRepository, TenderRepository>();
         services.AddScoped<ITenderSourceRepository, TenderSourceRepository>();
+        services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
         services.AddSingleton<IDuplicateDetector, DuplicateDetector>();
         services.AddScoped<ITenderNormalizer, TenderNormalizer>();
         services.AddSingleton<ITenderParser, JsonTenderParser>();
