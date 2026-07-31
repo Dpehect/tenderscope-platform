@@ -47,5 +47,20 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_refresh_tokens_TokenHash" ON refresh_tokens ("TokenHash");
 CREATE INDEX IF NOT EXISTS "IX_refresh_tokens_UserId_ExpiresAt" ON refresh_tokens ("UserId", "ExpiresAt");
+
+CREATE TABLE IF NOT EXISTS organization_invitations (
+  "Id" uuid PRIMARY KEY,
+  "OrganizationId" uuid NOT NULL REFERENCES organizations("Id") ON DELETE CASCADE,
+  "Email" varchar(320) NOT NULL,
+  "Role" integer NOT NULL,
+  "TokenHash" varchar(128) NOT NULL,
+  "InvitedByUserId" uuid NOT NULL REFERENCES app_users("Id") ON DELETE RESTRICT,
+  "CreatedAt" timestamptz NOT NULL,
+  "ExpiresAt" timestamptz NOT NULL,
+  "AcceptedAt" timestamptz NULL,
+  "RevokedAt" timestamptz NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_organization_invitations_TokenHash" ON organization_invitations ("TokenHash");
+CREATE INDEX IF NOT EXISTS "IX_organization_invitations_OrganizationId_Email_ExpiresAt" ON organization_invitations ("OrganizationId", "Email", "ExpiresAt");
 """, cancellationToken);
 }
