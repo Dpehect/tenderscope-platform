@@ -1,0 +1,17 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TenderScope.Domain", "src/TenderScope.Domain/TenderScope.Domain.csproj", "{35A6205D-7545-49A6-9C54-A2528A646101}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TenderScope.Application", "src/TenderScope.Application/TenderScope.Application.csproj", "{35A6205D-7545-49A6-9C54-A2528A646102}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TenderScope.Infrastructure", "src/TenderScope.Infrastructure/TenderScope.Infrastructure.csproj", "{35A6205D-7545-49A6-9C54-A2528A646103}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TenderScope.Api", "apps/api/TenderScope.Api.csproj", "{35A6205D-7545-49A6-9C54-A2528A646104}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TenderScope.Worker", "apps/worker/TenderScope.Worker.csproj", "{35A6205D-7545-49A6-9C54-A2528A646105}"
+EndProject
+Global
+EndGlobal
