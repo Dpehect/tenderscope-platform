@@ -1,5 +1,6 @@
 'use client';
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { SearchResult, Tender } from "../lib/api";
 
@@ -20,11 +21,12 @@ function TenderRow({ tender, saved, onSave }: { tender: Tender; saved: boolean; 
       <div className="rowNumber">{tender.countryCode}</div>
       <div className="rowMain">
         <div className="rowMeta"><span>{tender.category ?? "General procurement"}</span><span>{tender.buyerName}</span></div>
-        <h3>{tender.title}</h3>
+        <h3><Link href={`/opportunities/${encodeURIComponent(tender.id)}`}>{tender.title}</Link></h3>
         <p>{tender.description?.slice(0, 180) || "Public procurement opportunity collected and normalized by TenderScope."}</p>
       </div>
       <div className="rowValue"><strong>{formatMoney(tender.estimatedValue, tender.currency)}</strong><span>{days === null ? "Open deadline" : days < 0 ? "Closed" : `${days} days left`}</span></div>
       <div className="rowActions">
+        <Link className="detailButton" href={`/opportunities/${encodeURIComponent(tender.id)}`}>Review</Link>
         <button onClick={onSave} className={saved ? "saveButton saved" : "saveButton"} aria-label={saved ? "Remove from workspace" : "Save to workspace"}>{saved ? "Saved" : "Save"}</button>
         <a href={tender.sourceUrl} target="_blank" rel="noreferrer" aria-label="Open official notice">↗</a>
       </div>
