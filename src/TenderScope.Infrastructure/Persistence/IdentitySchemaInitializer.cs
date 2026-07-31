@@ -39,14 +39,21 @@ CREATE INDEX IF NOT EXISTS "IX_organization_memberships_UserId_Role" ON organiza
 CREATE TABLE IF NOT EXISTS refresh_tokens (
   "Id" uuid PRIMARY KEY,
   "UserId" uuid NOT NULL REFERENCES app_users("Id") ON DELETE CASCADE,
+  "OrganizationId" uuid NULL REFERENCES organizations("Id") ON DELETE CASCADE,
   "TokenHash" varchar(128) NOT NULL,
   "CreatedAt" timestamptz NOT NULL,
   "ExpiresAt" timestamptz NOT NULL,
   "RevokedAt" timestamptz NULL,
   "ReplacedByTokenHash" varchar(128) NULL
 );
+ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS "OrganizationId" uuid NULL;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_refresh_tokens_organizations_OrganizationId') THEN
+    ALTER TABLE refresh_tokens ADD CONSTRAINT "FK_refresh_tokens_organizations_OrganizationId" FOREIGN KEY ("OrganizationId") REFERENCES organizations("Id") ON DELETE CASCADE;
+  END IF;
+END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_refresh_tokens_TokenHash" ON refresh_tokens ("TokenHash");
-CREATE INDEX IF NOT EXISTS "IX_refresh_tokens_UserId_ExpiresAt" ON refresh_tokens ("UserId", "ExpiresAt");
+CREATE INDEX IF NOT EXISTS "IX_refresh_tokens_UserId_OrganizationId_ExpiresAt" ON refresh_tokens ("UserId", "OrganizationId", "ExpiresAt");
 
 CREATE TABLE IF NOT EXISTS organization_invitations (
   "Id" uuid PRIMARY KEY,
