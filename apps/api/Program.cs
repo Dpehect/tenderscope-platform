@@ -1,6 +1,8 @@
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using TenderScope.Application.Contracts;
 using TenderScope.Domain.Entities;
 using TenderScope.Infrastructure;
@@ -83,7 +85,20 @@ admin.MapPost("/sources/{id:guid}/enabled", async (Guid id, bool enabled, Tender
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<TenderScopeDbContext>();
-    await db.Database.EnsureCreatedAsync();
+    var connection = db.Database.GetDbConnection();
+    await connection.OpenAsync();
+    await using (var command = connection.CreateCommand())
+    {
+        command.CommandText = "SELECT to_regclass('public.tender_sources') IS NOT NULL";
+        var sourcesTableExists = (bool)(await command.ExecuteScalarAsync() ?? false);
+        if (!sourcesTableExists)
+        {
+            var databaseCreator = db.GetService<IRelationalDatabaseCreator>();
+            await databaseCreator.CreateTablesAsync();
+        }
+    }
+    await connection.CloseAsync();
+
     var demo = new TenderSource { Key = "demo-open-source", Name = "TenderScope deterministic validation source", BaseUrl = new Uri("https://example.org/tenders"), Format = SourceFormat.Json, CountryCode = "INT" };
     var ted = new TenderSource { Key = "eu-ted-search", Name = "European Union Tenders Electronic Daily", BaseUrl = new Uri("https://api.ted.europa.eu/v3/notices/search"), Format = SourceFormat.Json, CountryCode = "EU" }; ted.ConfigureInterval(360);
     var sources = scope.ServiceProvider.GetRequiredService<ITenderSourceRepository>();
