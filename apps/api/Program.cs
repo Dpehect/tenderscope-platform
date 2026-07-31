@@ -29,6 +29,43 @@ app.MapGet("/api/stats", async (ITenderRepository tenders, ITenderSourceReposito
     });
 });
 
+var workspace = app.MapGroup("/api/workspace");
+workspace.MapGet("/{userKey}/items", async (string userKey, IWorkspaceRepository repository, CancellationToken cancellationToken) =>
+    Results.Ok(await repository.ListItemsAsync(userKey, cancellationToken)));
+workspace.MapPut("/{userKey}/items/{tenderId:guid}", async (string userKey, Guid tenderId, WorkspaceItemRequest request, IWorkspaceRepository repository, CancellationToken cancellationToken) =>
+{
+    var item = await repository.SaveItemAsync(userKey, tenderId, request.Stage, request.Notes, cancellationToken);
+    await repository.SaveChangesAsync(cancellationToken);
+    return Results.Ok(item);
+});
+workspace.MapDelete("/{userKey}/items/{tenderId:guid}", async (string userKey, Guid tenderId, IWorkspaceRepository repository, CancellationToken cancellationToken) =>
+{
+    await repository.RemoveItemAsync(userKey, tenderId, cancellationToken);
+    await repository.SaveChangesAsync(cancellationToken);
+    return Results.NoContent();
+});
+workspace.MapGet("/{userKey}/searches", async (string userKey, IWorkspaceRepository repository, CancellationToken cancellationToken) =>
+    Results.Ok(await repository.ListSearchesAsync(userKey, cancellationToken)));
+workspace.MapPost("/{userKey}/searches", async (string userKey, SavedSearchRequest request, IWorkspaceRepository repository, CancellationToken cancellationToken) =>
+{
+    var search = await repository.AddSearchAsync(new SavedSearch
+    {
+        UserKey = userKey,
+        Name = request.Name,
+        Query = request.Query,
+        Country = request.Country,
+        Category = request.Category
+    }, cancellationToken);
+    await repository.SaveChangesAsync(cancellationToken);
+    return Results.Created($"/api/workspace/{userKey}/searches/{search.Id}", search);
+});
+workspace.MapDelete("/{userKey}/searches/{id:guid}", async (string userKey, Guid id, IWorkspaceRepository repository, CancellationToken cancellationToken) =>
+{
+    await repository.RemoveSearchAsync(userKey, id, cancellationToken);
+    await repository.SaveChangesAsync(cancellationToken);
+    return Results.NoContent();
+});
+
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<TenderScopeDbContext>();
@@ -46,3 +83,6 @@ await using (var scope = app.Services.CreateAsyncScope())
 }
 
 app.Run();
+
+public sealed record WorkspaceItemRequest(OpportunityStage Stage, string? Notes);
+public sealed record SavedSearchRequest(string Name, string? Query, string? Country, string? Category);
