@@ -17,12 +17,12 @@ import {
   type OrganizationRole
 } from '../lib/organization-api';
 
-const manageableRoles = organizationRoles.filter(role => role !== 'Owner');
-
 export function OrganizationSettings() {
   const session = getStoredSession();
   const currentRole = session?.user.role as OrganizationRole | undefined;
-  const canManage = currentRole ? organizationRoles.indexOf(currentRole) >= organizationRoles.indexOf('Manager') : false;
+  const currentRoleIndex = currentRole ? organizationRoles.indexOf(currentRole) : 0;
+  const canManage = currentRoleIndex >= organizationRoles.indexOf('Manager');
+  const assignableRoles = organizationRoles.filter(item => item !== 'Owner' && organizationRoles.indexOf(item) <= currentRoleIndex);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [invitations, setInvitations] = useState<OrganizationInvitation[]>([]);
   const [email, setEmail] = useState('');
@@ -119,7 +119,7 @@ export function OrganizationSettings() {
       <header><div><span>NEW INVITATION</span><h2>Invite a teammate.</h2></div><small>Manager access or above required</small></header>
       <div className="inviteForm">
         <label>Email<input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="name@company.com" /></label>
-        <label>Role<select value={role} onChange={event => setRole(event.target.value as OrganizationRole)}>{manageableRoles.map(item => <option key={item}>{item}</option>)}</select></label>
+        <label>Role<select value={role} onChange={event => setRole(event.target.value as OrganizationRole)}>{assignableRoles.map(item => <option key={item}>{item}</option>)}</select></label>
         <label>Expires<select value={expiresInDays} onChange={event => setExpiresInDays(Number(event.target.value))}><option value={1}>1 day</option><option value={7}>7 days</option><option value={14}>14 days</option><option value={30}>30 days</option></select></label>
         <button onClick={invite} disabled={busy === 'invite'}>{busy === 'invite' ? 'Creating…' : 'Create invitation'}</button>
       </div>
@@ -137,7 +137,7 @@ export function OrganizationSettings() {
             <div className="memberIdentity"><i>{initials(member.displayName)}</i><div><strong>{member.displayName}{isSelf ? ' (you)' : ''}</strong><span>{member.email}</span></div></div>
             <div className="memberDates"><span>Joined {formatDate(member.joinedAt)}</span><small>{member.lastLoginAt ? `Last active ${formatDate(member.lastLoginAt)}` : 'No recorded login'}</small></div>
             <div className="memberActions">
-              {canManage && !isOwner && !isSelf ? <select disabled={busy === member.id} value={memberRole} onChange={event => updateRole(member, event.target.value as OrganizationRole)}>{manageableRoles.map(item => <option key={item}>{item}</option>)}</select> : <span className="roleBadge">{memberRole}</span>}
+              {canManage && !isOwner && !isSelf ? <select disabled={busy === member.id} value={memberRole} onChange={event => updateRole(member, event.target.value as OrganizationRole)}>{assignableRoles.map(item => <option key={item}>{item}</option>)}</select> : <span className="roleBadge">{memberRole}</span>}
               {canManage && !isOwner && !isSelf && <button disabled={busy === member.id} onClick={() => remove(member)}>Remove</button>}
             </div>
           </article>;
