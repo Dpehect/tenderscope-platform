@@ -22,7 +22,7 @@ public static class OrganizationModule
                                  join user in db.Users.AsNoTracking() on membership.UserId equals user.Id
                                  where membership.OrganizationId == context.OrganizationId
                                  orderby membership.Role descending, user.DisplayName
-                                 select new { membership.Id, user.Id, user.Email, user.DisplayName, membership.Role, membership.JoinedAt, user.LastLoginAt, user.IsActive })
+                                 select new { MembershipId = membership.Id, UserId = user.Id, user.Email, user.DisplayName, membership.Role, membership.JoinedAt, user.LastLoginAt, user.IsActive })
                 .ToListAsync(ct);
             return Results.Ok(members);
         });
