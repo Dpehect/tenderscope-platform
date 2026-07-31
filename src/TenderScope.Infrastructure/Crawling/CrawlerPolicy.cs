@@ -1,3 +1,5 @@
+using System.Net;
+
 namespace TenderScope.Infrastructure.Crawling;
 
 public static class CrawlerPolicy
