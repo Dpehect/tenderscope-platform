@@ -4,9 +4,9 @@ import { authRequest } from './auth-api';
 
 export type OrganizationAnalytics = {
   total: number; active: number; won: number; lost: number; winRate: number;
-  upcomingDeadlines: number; overdue: number;
-  pipeline: { stage: string | number; count: number }[];
-  workload: { userId: string; displayName: string; assigned: number; overdue: number }[];
+  dueNext7Days: number; overdue: number;
+  pipeline: { stage: string; count: number }[];
+  workload: { id: string; displayName: string; role: string; assigned: number; overdue: number }[];
 };
 
 export type GlobalSearchItem = {
