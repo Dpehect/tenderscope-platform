@@ -84,19 +84,19 @@ public sealed class TenderIngestionService(
         return new IngestionReport(startedAt, DateTimeOffset.UtcNow, total, results);
     }
 
-    private Task InsertRunAsync(Guid id, Guid sourceId, string key, string parserVersion, int attempt, CancellationToken ct) =>
+    private Task<int> InsertRunAsync(Guid id, Guid sourceId, string key, string parserVersion, int attempt, CancellationToken ct) =>
         db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO crawl_runs (\"Id\", \"SourceId\", \"SourceKey\", \"ParserVersion\", \"Status\", \"Attempt\", \"StartedAt\") VALUES ({id}, {sourceId}, {key}, {parserVersion}, {0}, {attempt}, {DateTimeOffset.UtcNow})", ct);
 
-    private Task CompleteRunAsync(Guid id, int fetched, int imported, int rejected, TimeSpan duration, CancellationToken ct) =>
+    private Task<int> CompleteRunAsync(Guid id, int fetched, int imported, int rejected, TimeSpan duration, CancellationToken ct) =>
         db.Database.ExecuteSqlInterpolatedAsync($"UPDATE crawl_runs SET \"Status\"={rejected > 0 ? 2 : 1}, \"FetchedCount\"={fetched}, \"ImportedCount\"={imported}, \"RejectedCount\"={rejected}, \"DurationMilliseconds\"={(long)duration.TotalMilliseconds}, \"CompletedAt\"={DateTimeOffset.UtcNow} WHERE \"Id\"={id}", ct);
 
-    private Task FailRunAsync(Guid id, Exception exception, TimeSpan duration, CancellationToken ct)
+    private Task<int> FailRunAsync(Guid id, Exception exception, TimeSpan duration, CancellationToken ct)
     {
         var error = exception.Message[..Math.Min(exception.Message.Length, 4000)];
         return db.Database.ExecuteSqlInterpolatedAsync($"UPDATE crawl_runs SET \"Status\"={3}, \"Error\"={error}, \"DurationMilliseconds\"={(long)duration.TotalMilliseconds}, \"CompletedAt\"={DateTimeOffset.UtcNow} WHERE \"Id\"={id}", ct);
     }
 
-    private Task InsertDeadLetterAsync(Guid runId, Guid sourceId, string key, Exception exception, int attempts, CancellationToken ct)
+    private Task<int> InsertDeadLetterAsync(Guid runId, Guid sourceId, string key, Exception exception, int attempts, CancellationToken ct)
     {
         var error = exception.ToString()[..Math.Min(exception.ToString().Length, 4000)];
         return db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO crawl_dead_letters (\"Id\", \"CrawlRunId\", \"SourceId\", \"SourceKey\", \"Error\", \"Attempts\", \"CreatedAt\") VALUES ({Guid.NewGuid()}, {runId}, {sourceId}, {key}, {error}, {attempts}, {DateTimeOffset.UtcNow})", ct);
