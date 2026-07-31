@@ -105,7 +105,7 @@ public sealed class PostgresTenantIsolationTests(PostgresFixture fixture)
         await db.ApplyProductionMigrationsAsync();
 
         var applied = await db.Database
-            .SqlQueryRaw<string>("SELECT version AS \"Value\" FROM schema_migrations ORDER BY version")
+            .SqlQueryRaw<string>("SELECT \"Version\" AS \"Value\" FROM schema_migrations ORDER BY \"Version\"")
             .ToListAsync();
 
         Assert.NotEmpty(applied);
