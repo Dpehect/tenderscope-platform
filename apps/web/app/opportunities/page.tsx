@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import { TenderExplorer } from "../../components/tender-explorer";
 import { getOpportunities } from "../../lib/api";
 
-export const metadata = { title: "Opportunities — TenderScope", description: "Search normalized public procurement opportunities." };
+export const metadata: Metadata = {
+  title: "Opportunities",
+  description: "Search normalized public procurement opportunities.",
+  alternates: { canonical: "/opportunities" },
+  openGraph: { url: "/opportunities", title: "Opportunities | TenderScope" }
+};
 
 export default async function OpportunitiesPage() {
   const result = await getOpportunities("pageSize=80&sort=deadline-asc");
