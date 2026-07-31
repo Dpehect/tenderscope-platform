@@ -48,6 +48,7 @@ public sealed class RefreshToken
 {
     public Guid Id { get; private set; } = Guid.NewGuid();
     public Guid UserId { get; init; }
+    public Guid? OrganizationId { get; init; }
     public required string TokenHash { get; init; }
     public DateTimeOffset CreatedAt { get; private set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset ExpiresAt { get; init; }
