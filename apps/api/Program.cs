@@ -30,7 +30,7 @@ app.Use(async (context, next) =>
 {
     context.Response.Headers.XContentTypeOptions = "nosniff";
     context.Response.Headers.XFrameOptions = "DENY";
-    context.Response.Headers.ReferrerPolicy = "strict-origin-when-cross-origin";
+    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
     context.Response.Headers.ContentSecurityPolicy = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'";
     context.Response.Headers.Append("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
     await next();
