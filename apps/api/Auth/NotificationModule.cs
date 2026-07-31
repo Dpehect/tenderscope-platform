@@ -49,7 +49,12 @@ public static class NotificationModule
             var tenant = TenantContext.From(principal);
             if (tenant is null) return Results.Unauthorized();
             var preference = await db.NotificationPreferences.AsNoTracking().SingleOrDefaultAsync(x => x.OrganizationId == tenant.OrganizationId && x.UserId == tenant.UserId, ct);
-            return Results.Ok(preference ?? new { inAppEnabled = true, watchlistMatchesEnabled = true, deadlineRemindersEnabled = true });
+            return Results.Ok(new
+            {
+                inAppEnabled = preference?.InAppEnabled ?? true,
+                watchlistMatchesEnabled = preference?.WatchlistMatchesEnabled ?? true,
+                deadlineRemindersEnabled = preference?.DeadlineRemindersEnabled ?? true
+            });
         });
 
         group.MapPut("/preferences", async (NotificationPreferenceRequest request, ClaimsPrincipal principal, TenderScopeDbContext db, CancellationToken ct) =>
@@ -64,7 +69,12 @@ public static class NotificationModule
             }
             preference.Update(request.InAppEnabled, request.WatchlistMatchesEnabled, request.DeadlineRemindersEnabled);
             await db.SaveChangesAsync(ct);
-            return Results.Ok(preference);
+            return Results.Ok(new
+            {
+                inAppEnabled = preference.InAppEnabled,
+                watchlistMatchesEnabled = preference.WatchlistMatchesEnabled,
+                deadlineRemindersEnabled = preference.DeadlineRemindersEnabled
+            });
         });
 
         group.MapPost("/run-watchlist-matches", async (ClaimsPrincipal principal, TenderScopeDbContext db, CancellationToken ct) =>
@@ -123,7 +133,7 @@ public static class NotificationModule
             if (tender.Title.Contains(term, StringComparison.OrdinalIgnoreCase)) score += 35;
             else if (tender.BuyerName.Contains(term, StringComparison.OrdinalIgnoreCase) || tender.Description?.Contains(term, StringComparison.OrdinalIgnoreCase) == true) score += 20;
         }
-        if (tender.DeadlineAt > DateTimeOffset.UtcNow.AddDays(7)) score += 5;
+        if (tender.DeadlineAt.HasValue && tender.DeadlineAt.Value > DateTimeOffset.UtcNow.AddDays(7)) score += 5;
         return Math.Min(score, 100);
     }
 
