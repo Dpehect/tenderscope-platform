@@ -14,6 +14,7 @@ public sealed class TenderScopeDbContext(DbContextOptions<TenderScopeDbContext> 
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<OrganizationMembership> OrganizationMemberships => Set<OrganizationMembership>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<OrganizationInvitation> OrganizationInvitations => Set<OrganizationInvitation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -53,5 +54,11 @@ public sealed class TenderScopeDbContext(DbContextOptions<TenderScopeDbContext> 
         refresh.ToTable("refresh_tokens"); refresh.HasKey(x => x.Id); refresh.HasIndex(x => x.TokenHash).IsUnique(); refresh.HasIndex(x => new { x.UserId, x.ExpiresAt });
         refresh.Property(x => x.TokenHash).HasMaxLength(128); refresh.Property(x => x.ReplacedByTokenHash).HasMaxLength(128);
         refresh.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+
+        var invitation = modelBuilder.Entity<OrganizationInvitation>();
+        invitation.ToTable("organization_invitations"); invitation.HasKey(x => x.Id); invitation.HasIndex(x => x.TokenHash).IsUnique(); invitation.HasIndex(x => new { x.OrganizationId, x.Email, x.ExpiresAt });
+        invitation.Property(x => x.Email).HasMaxLength(320); invitation.Property(x => x.TokenHash).HasMaxLength(128);
+        invitation.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
+        invitation.HasOne<AppUser>().WithMany().HasForeignKey(x => x.InvitedByUserId).OnDelete(DeleteBehavior.Restrict);
     }
 }
