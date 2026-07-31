@@ -28,10 +28,7 @@ public static class AuthModule
             options.RequireHttpsMetadata = !configuration.GetValue("Jwt:AllowHttp", false);
             options.TokenValidationParameters = new TokenValidationParameters
             {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
+                ValidateIssuer = true, ValidateAudience = true, ValidateLifetime = true, ValidateIssuerSigningKey = true,
                 ValidIssuer = configuration["Jwt:Issuer"] ?? "TenderScope",
                 ValidAudience = configuration["Jwt:Audience"] ?? "TenderScope.Web",
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
@@ -57,17 +54,13 @@ public static class AuthModule
             var user = AppUser.Create(email, request.DisplayName, passwords.Hash(request.Password));
             var organizationName = string.IsNullOrWhiteSpace(request.OrganizationName) ? $"{request.DisplayName.Trim()}'s workspace" : request.OrganizationName.Trim();
             var organization = new Organization { Name = organizationName, Slug = await UniqueSlugAsync(db, organizationName, ct) };
-            db.Users.Add(user);
-            db.Organizations.Add(organization);
-            db.OrganizationMemberships.Add(new OrganizationMembership { UserId = user.Id, OrganizationId = organization.Id });
-            await db.SaveChangesAsync(ct);
-
-            var membership = await db.OrganizationMemberships.SingleAsync(x => x.UserId == user.Id && x.OrganizationId == organization.Id, ct);
+            db.Users.Add(user); db.Organizations.Add(organization);
+            var membership = new OrganizationMembership { UserId = user.Id, OrganizationId = organization.Id };
             membership.ChangeRole(OrganizationRole.Owner);
+            db.OrganizationMemberships.Add(membership);
             user.MarkLogin(DateTimeOffset.UtcNow);
-            var session = await tokens.CreateSessionAsync(user, membership, organization, http, ct);
-            await db.SaveChangesAsync(ct);
-            await transaction.CommitAsync(ct);
+            var session = await tokens.CreateSessionAsync(user, membership, organization, ct);
+            await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
             SetRefreshCookie(http, session.RefreshToken, session.RefreshExpiresAt);
             return Results.Created("/api/auth/me", session.Response);
         }).RequireRateLimiting("auth");
@@ -79,14 +72,13 @@ public static class AuthModule
             if (user is null || !user.IsActive || !passwords.Verify(request.Password, user.PasswordHash))
                 return Results.Json(new { error = "Invalid email or password." }, statusCode: StatusCodes.Status401Unauthorized);
 
-            var membership = await db.OrganizationMemberships.Where(x => x.UserId == user.Id)
-                .OrderByDescending(x => x.Role).FirstOrDefaultAsync(ct);
+            var membership = await db.OrganizationMemberships.Where(x => x.UserId == user.Id).OrderByDescending(x => x.Role).FirstOrDefaultAsync(ct);
             if (membership is null) return Results.Forbid();
             var organization = await db.Organizations.SingleAsync(x => x.Id == membership.OrganizationId, ct);
             if (!organization.IsActive) return Results.Forbid();
 
             user.MarkLogin(DateTimeOffset.UtcNow);
-            var session = await tokens.CreateSessionAsync(user, membership, organization, http, ct);
+            var session = await tokens.CreateSessionAsync(user, membership, organization, ct);
             await db.SaveChangesAsync(ct);
             SetRefreshCookie(http, session.RefreshToken, session.RefreshExpiresAt);
             return Results.Ok(session.Response);
@@ -95,19 +87,45 @@ public static class AuthModule
         auth.MapPost("/refresh", async (TenderScopeDbContext db, TokenService tokens, HttpContext http, CancellationToken ct) =>
         {
             if (!http.Request.Cookies.TryGetValue(RefreshCookie, out var rawToken) || string.IsNullOrWhiteSpace(rawToken)) return Results.Unauthorized();
-            var session = await tokens.RotateSessionAsync(rawToken, http, ct);
+            var session = await tokens.RotateSessionAsync(rawToken, ct);
             if (session is null) { DeleteRefreshCookie(http); return Results.Unauthorized(); }
             await db.SaveChangesAsync(ct);
             SetRefreshCookie(http, session.RefreshToken, session.RefreshExpiresAt);
             return Results.Ok(session.Response);
         }).RequireRateLimiting("auth");
 
+        auth.MapGet("/organizations", async (ClaimsPrincipal principal, TenderScopeDbContext db, CancellationToken ct) =>
+        {
+            if (!Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)) return Results.Unauthorized();
+            var currentId = Guid.TryParse(principal.FindFirstValue("organization_id"), out var parsed) ? parsed : Guid.Empty;
+            var organizations = await (from membership in db.OrganizationMemberships.AsNoTracking()
+                                       join organization in db.Organizations.AsNoTracking() on membership.OrganizationId equals organization.Id
+                                       where membership.UserId == userId && organization.IsActive
+                                       orderby organization.Name
+                                       select new { organization.Id, organization.Name, organization.Slug, Role = membership.Role.ToString(), IsCurrent = organization.Id == currentId })
+                .ToListAsync(ct);
+            return Results.Ok(organizations);
+        }).RequireAuthorization();
+
+        auth.MapPost("/switch-organization", async (SwitchOrganizationRequest request, ClaimsPrincipal principal, TenderScopeDbContext db, TokenService tokens, HttpContext http, CancellationToken ct) =>
+        {
+            if (!Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)) return Results.Unauthorized();
+            var user = await db.Users.SingleOrDefaultAsync(x => x.Id == userId && x.IsActive, ct);
+            var membership = await db.OrganizationMemberships.SingleOrDefaultAsync(x => x.UserId == userId && x.OrganizationId == request.OrganizationId, ct);
+            var organization = await db.Organizations.SingleOrDefaultAsync(x => x.Id == request.OrganizationId && x.IsActive, ct);
+            if (user is null || membership is null || organization is null) return Results.Forbid();
+
+            if (http.Request.Cookies.TryGetValue(RefreshCookie, out var existing)) await tokens.RevokeAsync(existing, ct);
+            var session = await tokens.CreateSessionAsync(user, membership, organization, ct);
+            await db.SaveChangesAsync(ct);
+            SetRefreshCookie(http, session.RefreshToken, session.RefreshExpiresAt);
+            return Results.Ok(session.Response);
+        }).RequireAuthorization().RequireRateLimiting("auth");
+
         auth.MapPost("/logout", async (TenderScopeDbContext db, TokenService tokens, HttpContext http, CancellationToken ct) =>
         {
             if (http.Request.Cookies.TryGetValue(RefreshCookie, out var rawToken)) await tokens.RevokeAsync(rawToken, ct);
-            await db.SaveChangesAsync(ct);
-            DeleteRefreshCookie(http);
-            return Results.NoContent();
+            await db.SaveChangesAsync(ct); DeleteRefreshCookie(http); return Results.NoContent();
         });
 
         auth.MapGet("/me", async (ClaimsPrincipal principal, TenderScopeDbContext db, CancellationToken ct) =>
@@ -115,13 +133,7 @@ public static class AuthModule
             if (!Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)) return Results.Unauthorized();
             var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId && x.IsActive, ct);
             if (user is null) return Results.Unauthorized();
-            return Results.Ok(new
-            {
-                user.Id, user.Email, user.DisplayName,
-                OrganizationId = principal.FindFirstValue("organization_id"),
-                Organization = principal.FindFirstValue("organization_name"),
-                Role = principal.FindFirstValue(ClaimTypes.Role)
-            });
+            return Results.Ok(new { user.Id, user.Email, user.DisplayName, OrganizationId = principal.FindFirstValue("organization_id"), Organization = principal.FindFirstValue("organization_name"), Role = principal.FindFirstValue(ClaimTypes.Role) });
         }).RequireAuthorization();
 
         return endpoints;
@@ -156,8 +168,7 @@ public sealed class PasswordService
         {
             var parts = encoded.Split('$');
             if (parts.Length != 4 || parts[0] != "pbkdf2-sha256" || !int.TryParse(parts[1], out var iterations)) return false;
-            var salt = Convert.FromBase64String(parts[2]);
-            var expected = Convert.FromBase64String(parts[3]);
+            var salt = Convert.FromBase64String(parts[2]); var expected = Convert.FromBase64String(parts[3]);
             var actual = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, expected.Length);
             return CryptographicOperations.FixedTimeEquals(actual, expected);
         }
@@ -167,46 +178,44 @@ public sealed class PasswordService
 
 public sealed class TokenService(TenderScopeDbContext db, IConfiguration configuration)
 {
-    public async Task<SessionResult> CreateSessionAsync(AppUser user, OrganizationMembership membership, Organization organization, HttpContext http, CancellationToken ct)
+    public Task<SessionResult> CreateSessionAsync(AppUser user, OrganizationMembership membership, Organization organization, CancellationToken ct)
     {
         var rawRefresh = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
         var refreshExpiry = DateTimeOffset.UtcNow.AddDays(Math.Clamp(configuration.GetValue("Jwt:RefreshDays", 14), 1, 60));
-        db.RefreshTokens.Add(new RefreshToken { UserId = user.Id, TokenHash = HashToken(rawRefresh), ExpiresAt = refreshExpiry });
-        await Task.CompletedTask;
-        return Build(user, membership, organization, rawRefresh, refreshExpiry);
+        db.RefreshTokens.Add(new RefreshToken { UserId = user.Id, OrganizationId = organization.Id, TokenHash = HashToken(rawRefresh), ExpiresAt = refreshExpiry });
+        return Task.FromResult(Build(user, membership, organization, rawRefresh, refreshExpiry));
     }
 
-    public async Task<SessionResult?> RotateSessionAsync(string rawRefresh, HttpContext http, CancellationToken ct)
+    public async Task<SessionResult?> RotateSessionAsync(string rawRefresh, CancellationToken ct)
     {
         var hash = HashToken(rawRefresh);
         var existing = await db.RefreshTokens.SingleOrDefaultAsync(x => x.TokenHash == hash, ct);
         if (existing is null || !existing.IsActive) return null;
         var user = await db.Users.SingleOrDefaultAsync(x => x.Id == existing.UserId && x.IsActive, ct);
         if (user is null) return null;
-        var membership = await db.OrganizationMemberships.Where(x => x.UserId == user.Id).OrderByDescending(x => x.Role).FirstOrDefaultAsync(ct);
+        var membershipQuery = db.OrganizationMemberships.Where(x => x.UserId == user.Id);
+        if (existing.OrganizationId.HasValue) membershipQuery = membershipQuery.Where(x => x.OrganizationId == existing.OrganizationId.Value);
+        var membership = await membershipQuery.OrderByDescending(x => x.Role).FirstOrDefaultAsync(ct);
         if (membership is null) return null;
         var organization = await db.Organizations.SingleOrDefaultAsync(x => x.Id == membership.OrganizationId && x.IsActive, ct);
         if (organization is null) return null;
 
-        var nextRaw = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
-        var nextHash = HashToken(nextRaw);
+        var nextRaw = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)); var nextHash = HashToken(nextRaw);
         var expiry = DateTimeOffset.UtcNow.AddDays(Math.Clamp(configuration.GetValue("Jwt:RefreshDays", 14), 1, 60));
         existing.Revoke(DateTimeOffset.UtcNow, nextHash);
-        db.RefreshTokens.Add(new RefreshToken { UserId = user.Id, TokenHash = nextHash, ExpiresAt = expiry });
+        db.RefreshTokens.Add(new RefreshToken { UserId = user.Id, OrganizationId = organization.Id, TokenHash = nextHash, ExpiresAt = expiry });
         return Build(user, membership, organization, nextRaw, expiry);
     }
 
     public async Task RevokeAsync(string rawRefresh, CancellationToken ct)
     {
-        var hash = HashToken(rawRefresh);
-        var token = await db.RefreshTokens.SingleOrDefaultAsync(x => x.TokenHash == hash, ct);
+        var token = await db.RefreshTokens.SingleOrDefaultAsync(x => x.TokenHash == HashToken(rawRefresh), ct);
         if (token?.IsActive == true) token.Revoke(DateTimeOffset.UtcNow);
     }
 
     private SessionResult Build(AppUser user, OrganizationMembership membership, Organization organization, string refresh, DateTimeOffset refreshExpiry)
     {
-        var now = DateTimeOffset.UtcNow;
-        var accessExpiry = now.AddMinutes(Math.Clamp(configuration.GetValue("Jwt:AccessMinutes", 15), 5, 60));
+        var now = DateTimeOffset.UtcNow; var accessExpiry = now.AddMinutes(Math.Clamp(configuration.GetValue("Jwt:AccessMinutes", 15), 5, 60));
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Secret"]!));
         var claims = new[]
         {
@@ -216,14 +225,14 @@ public sealed class TokenService(TenderScopeDbContext db, IConfiguration configu
             new Claim("organization_name", organization.Name), new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
         var jwt = new JwtSecurityToken(configuration["Jwt:Issuer"] ?? "TenderScope", configuration["Jwt:Audience"] ?? "TenderScope.Web", claims, now.UtcDateTime, accessExpiry.UtcDateTime, new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
-        var access = new JwtSecurityTokenHandler().WriteToken(jwt);
-        return new SessionResult(new AuthResponse(access, accessExpiry, new AuthUser(user.Id, user.Email, user.DisplayName, organization.Id, organization.Name, membership.Role.ToString())), refresh, refreshExpiry);
+        return new SessionResult(new AuthResponse(new JwtSecurityTokenHandler().WriteToken(jwt), accessExpiry, new AuthUser(user.Id, user.Email, user.DisplayName, organization.Id, organization.Name, membership.Role.ToString())), refresh, refreshExpiry);
     }
     private static string HashToken(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
 }
 
 public sealed record RegisterRequest(string Email, string Password, string DisplayName, string? OrganizationName);
 public sealed record LoginRequest(string Email, string Password);
+public sealed record SwitchOrganizationRequest(Guid OrganizationId);
 public sealed record AuthUser(Guid Id, string Email, string DisplayName, Guid OrganizationId, string OrganizationName, string Role);
 public sealed record AuthResponse(string AccessToken, DateTimeOffset ExpiresAt, AuthUser User);
 public sealed record SessionResult(AuthResponse Response, string RefreshToken, DateTimeOffset RefreshExpiresAt);
