@@ -8,6 +8,22 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: tenderscope_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tenderscope_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      TEST_POSTGRES: Host=localhost;Port=5432;Database=tenderscope_test;Username=postgres;Password=postgres
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -16,7 +32,14 @@ jobs:
       - run: dotnet restore apps/api/TenderScope.Api.csproj
       - run: dotnet list apps/api/TenderScope.Api.csproj package --vulnerable --include-transitive
       - run: dotnet build apps/api/TenderScope.Api.csproj -c Release --no-restore
-      - run: dotnet test tests/TenderScope.Tests/TenderScope.Tests.csproj -c Release
+      - run: dotnet test tests/TenderScope.Tests/TenderScope.Tests.csproj -c Release --collect:"XPlat Code Coverage" --logger "trx;LogFileName=tests.trx"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results
+          path: |
+            tests/**/TestResults/**/*.trx
+            tests/**/TestResults/**/coverage.cobertura.xml
       - run: docker build -f apps/api/Dockerfile -t tenderscope-api:ci .
   frontend:
     runs-on: ubuntu-latest
