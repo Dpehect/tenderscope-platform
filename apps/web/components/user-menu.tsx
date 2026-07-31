@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { getStoredSession, logout, refreshSession, type AuthSession } from '../lib/auth-api';
+import styles from './user-menu.module.css';
 
 export function UserMenu() {
   const [session, setSession] = useState<AuthSession | null>(null);
@@ -33,13 +34,13 @@ export function UserMenu() {
     window.location.assign('/');
   }
 
-  return <div className="userMenu" ref={menuRef}>
-    <button className="userMenuTrigger" onClick={() => setOpen(value => !value)} aria-expanded={open}>
+  return <div className={styles.menu} ref={menuRef}>
+    <button className={styles.trigger} onClick={() => setOpen(value => !value)} aria-expanded={open}>
       <span>{initials(session.user.displayName)}</span>
       <div><strong>{session.user.displayName}</strong><small>{session.user.organizationName}</small></div>
     </button>
-    {open && <div className="userMenuPanel">
-      <div className="userMenuIdentity"><strong>{session.user.email}</strong><span>{session.user.role}</span></div>
+    {open && <div className={styles.panel}>
+      <div className={styles.identity}><strong>{session.user.email}</strong><span>{session.user.role}</span></div>
       <Link href="/workspace" onClick={() => setOpen(false)}>Workspace</Link>
       <Link href="/settings/organization" onClick={() => setOpen(false)}>Organization settings</Link>
       <button onClick={signOut}>Sign out</button>
