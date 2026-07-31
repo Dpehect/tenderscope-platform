@@ -34,14 +34,12 @@ await using (var scope = app.Services.CreateAsyncScope())
     var db = scope.ServiceProvider.GetRequiredService<TenderScopeDbContext>();
     await db.Database.EnsureCreatedAsync();
 
-    var sources = scope.ServiceProvider.GetRequiredService<ITenderSourceRepository>();
-    var seeds = new[]
-    {
-        new TenderSource { Key = "demo-open-source", Name = "TenderScope deterministic validation source", BaseUrl = new Uri("https://example.org/tenders"), Format = SourceFormat.Json, CountryCode = "INT" },
-        new TenderSource { Key = "eu-ted-search", Name = "European Union Tenders Electronic Daily", BaseUrl = new Uri("https://api.ted.europa.eu/v3/notices/search"), Format = SourceFormat.Json, CountryCode = "EU", CrawlIntervalMinutes = 360 }
-    };
+    var demo = new TenderSource { Key = "demo-open-source", Name = "TenderScope deterministic validation source", BaseUrl = new Uri("https://example.org/tenders"), Format = SourceFormat.Json, CountryCode = "INT" };
+    var ted = new TenderSource { Key = "eu-ted-search", Name = "European Union Tenders Electronic Daily", BaseUrl = new Uri("https://api.ted.europa.eu/v3/notices/search"), Format = SourceFormat.Json, CountryCode = "EU" };
+    ted.ConfigureInterval(360);
 
-    foreach (var seed in seeds)
+    var sources = scope.ServiceProvider.GetRequiredService<ITenderSourceRepository>();
+    foreach (var seed in new[] { demo, ted })
         if (await sources.FindByKeyAsync(seed.Key, CancellationToken.None) is null)
             await sources.AddAsync(seed, CancellationToken.None);
     await sources.SaveChangesAsync(CancellationToken.None);
