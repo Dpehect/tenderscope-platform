@@ -66,6 +66,14 @@ export function getOpportunities(query = "pageSize=24") {
   });
 }
 
+export async function getOpportunity(id: string) {
+  const direct = await request<Tender | null>(`/api/tenders/${encodeURIComponent(id)}`, null);
+  if (direct) return direct;
+
+  const result = await getOpportunities("page=1&pageSize=500&sort=deadline-asc");
+  return result.items.find(item => item.id === id) ?? null;
+}
+
 export function getStats() {
   return request<PlatformStats>("/api/stats", {
     totalTenders: 0, totalSources: 0, healthySources: 0, generatedAt: new Date(0).toISOString()
