@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using TenderScope.Application.Contracts;
+using TenderScope.Infrastructure.Persistence;
 
 namespace TenderScope.Api;
 
@@ -60,9 +62,11 @@ public sealed class ScheduledIngestionWorker(IServiceScopeFactory scopeFactory, 
         await Task.Delay(TimeSpan.FromSeconds(20), stoppingToken);
         while (!stoppingToken.IsCancellationRequested)
         {
+            var runId = Guid.NewGuid();
             try
             {
                 await using var scope = scopeFactory.CreateAsyncScope();
+                var db = scope.ServiceProvider.GetRequiredService<TenderScopeDbContext>();
                 await using var jobLock = scope.ServiceProvider.GetRequiredService<DistributedJobLock>();
                 if (!await jobLock.TryAcquireAsync("tenderscope:ingestion", stoppingToken))
                 {
@@ -70,13 +74,22 @@ public sealed class ScheduledIngestionWorker(IServiceScopeFactory scopeFactory, 
                 }
                 else
                 {
+                    await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO operational_job_runs (\"Id\", \"JobName\", \"InstanceId\", \"StartedAt\", \"Attempt\") VALUES ({runId}, {"tenderscope:ingestion"}, {Environment.MachineName}, {DateTimeOffset.UtcNow}, {1})", stoppingToken);
                     var ingestion = scope.ServiceProvider.GetRequiredService<TenderIngestionService>();
                     var report = await ingestion.RunAsync(stoppingToken);
+                    await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE operational_job_runs SET \"CompletedAt\"={DateTimeOffset.UtcNow}, \"Succeeded\"={true}, \"RecordsAffected\"={report.Imported} WHERE \"Id\"={runId}", stoppingToken);
                     logger.LogInformation("Scheduled ingestion completed with {Imported} imported records", report.Imported);
                 }
             }
             catch (Exception exception) when (!stoppingToken.IsCancellationRequested)
             {
+                try
+                {
+                    await using var failureScope = scopeFactory.CreateAsyncScope();
+                    var db = failureScope.ServiceProvider.GetRequiredService<TenderScopeDbContext>();
+                    await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE operational_job_runs SET \"CompletedAt\"={DateTimeOffset.UtcNow}, \"Succeeded\"={false}, \"Error\"={exception.Message[..Math.Min(exception.Message.Length, 4000)]} WHERE \"Id\"={runId}", stoppingToken);
+                }
+                catch { }
                 logger.LogError(exception, "Scheduled ingestion cycle failed");
             }
 
