@@ -1,4 +1,5 @@
 using TenderScope.Domain.Entities;
+using Xunit;
 
 namespace TenderScope.Domain.Tests;
 
