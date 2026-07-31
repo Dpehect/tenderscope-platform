@@ -4,6 +4,8 @@ namespace TenderScope.Infrastructure.Persistence;
 
 public static class ProductionMigrationRunner
 {
+    private const long MigrationLockKey = 817_324_119_607_311_027;
+
     private sealed record Migration(string Version, string Description, string Sql);
 
     private static readonly Migration[] Migrations =
@@ -31,9 +33,19 @@ CREATE INDEX IF NOT EXISTS "IX_operational_job_runs_JobName_StartedAt" ON operat
 """)
     ];
 
-    public static async Task ApplyProductionMigrationsAsync(this TenderScopeDbContext db, CancellationToken cancellationToken = default)
+    public static async Task ApplyProductionMigrationsAsync(
+        this TenderScopeDbContext db,
+        CancellationToken cancellationToken = default)
     {
-        await db.Database.ExecuteSqlRawAsync("""
+        await db.Database.OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                $"SELECT pg_advisory_lock({MigrationLockKey})",
+                cancellationToken);
+
+            await db.Database.ExecuteSqlRawAsync("""
 CREATE TABLE IF NOT EXISTS schema_migrations (
   "Version" varchar(80) PRIMARY KEY,
   "Description" varchar(500) NOT NULL,
@@ -41,19 +53,39 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 );
 """, cancellationToken);
 
-        foreach (var migration in Migrations)
-        {
-            var applied = await db.Database.SqlQueryRaw<int>(
-                "SELECT COUNT(*)::int AS \"Value\" FROM schema_migrations WHERE \"Version\" = {0}", migration.Version)
-                .SingleAsync(cancellationToken);
-            if (applied > 0) continue;
+            foreach (var migration in Migrations)
+            {
+                var applied = await db.Database.SqlQueryRaw<int>(
+                        "SELECT COUNT(*)::int AS \"Value\" FROM schema_migrations WHERE \"Version\" = {0}",
+                        migration.Version)
+                    .SingleAsync(cancellationToken);
 
-            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-            await db.Database.ExecuteSqlRawAsync(migration.Sql, cancellationToken);
-            await db.Database.ExecuteSqlRawAsync(
-                "INSERT INTO schema_migrations (\"Version\", \"Description\") VALUES ({0}, {1})",
-                [migration.Version, migration.Description], cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+                if (applied > 0)
+                {
+                    continue;
+                }
+
+                await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+                await db.Database.ExecuteSqlRawAsync(migration.Sql, cancellationToken);
+                await db.Database.ExecuteSqlRawAsync(
+                    "INSERT INTO schema_migrations (\"Version\", \"Description\") VALUES ({0}, {1})",
+                    [migration.Version, migration.Description],
+                    cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+        }
+        finally
+        {
+            try
+            {
+                await db.Database.ExecuteSqlRawAsync(
+                    $"SELECT pg_advisory_unlock({MigrationLockKey})",
+                    CancellationToken.None);
+            }
+            finally
+            {
+                await db.Database.CloseConnectionAsync();
+            }
         }
     }
 }
